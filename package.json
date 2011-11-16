@@ -1,0 +1,15 @@
+{
+  "author": "Raphael Schweikert <any@sabberworm.com> (http://sabberworm.com)",
+  "name": "iff-parser",
+  "description": "Parses Amiga IFF files",
+  "version": "0.0.1",
+  "repository": {
+    "url": ""
+  },
+  "main": "index.js",
+  "engines": {
+    "node": "~0.6.1"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
