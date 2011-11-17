@@ -1,0 +1,516 @@
+Toolmaker IFF project file format (ToolMaker V1.19)
+---------------------------------
+
+FORM TMUI
+
+Description by Michael Erwin
+
+
+The TMUI FORM is used by Toolmaker to describe the created graphical user
+interface.  TMUI stands for Toolmaker User Interface.  This description is
+for the output of Toolmaker V1.19 and may change in the future.
+
+ZTS in the following FORMs and chunks means Zero Terminated String.  All
+reserved fields must be set to 0.
+
+
+FORMs and chunks:
+
+  THDR
+
+    The THDR chunk contains the project's header information.  It is always
+    located within the TMUI FORM.
+
+      - ZTS version - the project's version string. (Ex: '$VER: Toolmaker
+                      Project 1.19 (8.7.92)\0')
+
+      - ULONG reserved
+
+      - ULONG reserved
+
+  ANNO
+
+    The ANNO chunk contains the project's annotation information.  It is always
+    located within the TMUI FORM.
+
+      - ZTS description - a string describing the project file. (Ex: 'Project
+                          file created by Toolmaker (c) 1992 Commodore Amiga
+                          Inc. (c) 1991 Michael J. Erwin\0')
+
+  TMSE
+
+    The TMSE FORM contains all settings information.  It is always located
+    within the TMUI FORM.  Each setting is contained in its own chunk within
+    the TMSE FORM.
+
+  SATB
+
+    The SATB chunk contains information for the Top Border Adjust setting.  It
+    is always located within the TMSE FORM.
+
+      - UBYTE flags - Top Border Adjust flags.
+
+                      bit    0: 1 = Top Border Adjust on.
+                      bit 1-31: reserved
+
+  SCOM
+
+    The SCOM chunk contains information for the Code Comments setting. It is
+    always located within the TMSE FORM.
+
+      - UBYTE flags - Code Comments flags.
+
+                      bit    0: 1 = Code Comments on.
+                      bit 1-31: reserved
+
+  SPRA
+
+    The SPRA chunk contains information for the Use Pragmas setting.  It is
+    always located within the TMSE FORM.
+
+      - UBYTE flags - Use Pragmas flags.
+
+                      bit    0: 1 = Use Pragmas on.
+                      bit 1-31: reserved
+
+  SICN
+
+    The SICN chunk contains information for the Create Icons setting.  It is
+    always located within the TMSE FORM.
+
+      - UBYTE flags - Create Icons flags.
+
+                      bit    0: 1 = Create Icons on.
+                      bit 1-31: reserved
+
+  SUSG
+
+    The SUSG chunk contains information for the User Wait Signal setting.  It
+    is always located within the TMSE FORM.
+
+      - UBYTE flags - User Wait Signal flags.
+
+                      bit    0: 1 = Create Icons on.
+                      bit 1-31: reserved
+
+  SARX
+
+    The SARX chunk contains information for the Use SimpleRexx setting.  It is
+    always located within the TMSE FORM.
+
+      - UBYTE flags - Use SimpleRexx flags.
+
+                      bit    0: 1 = Use SimpleRexx on.
+                      bit 1-31: reserved
+
+  SCHP
+
+    The SCHP chunk contains information for the Use __chip Keyword setting.  It
+    is always located within the TMSE FORM.:
+
+      - UBYTE flags - Use __chip Keyword flags.
+
+                      bit    0: 1 = Use __chip Keyword on.
+                      bit 1-31: reserved
+
+  SUDA
+
+    The SUDA chunk contains information for the Use UserData Structures setting.
+    It is always located within the TMSE FORM.
+
+      - UBYTE flags - Use UserData Structures flags.
+
+                      bit    0: 1 = Use UserData Structures on.
+                      bit 1-31: reserved
+
+  SFRQ
+
+    The SFRQ chunk contains information for the Use ASL File Requester setting.
+    It is always located within the TMSE FORM.
+
+      - UBYTE flags - Use ASL File Requester flags.
+
+                      bit    0: 1 = Use ASL File Requester on.
+                      bit 1-31: reserved
+
+  SGSZ
+
+    The SGSZ chunk contains information for the Grid Snap setting.  It is
+    always located within the TMSE FORM.
+
+      - UBYTE gridsize - the size of the grid spacing.  Future versions of
+                         Toolmaker may use other values.
+
+                         1 = Grid Snap Off.
+                         2 = Grid Snap at 2 pixels.
+                         4 = Grid Snap at 4 pixels.
+                         8 = Grid Snap at 8 pixels.
+
+      - UBYTE reserved
+
+  TSCR
+
+    The TSCR FORM contains all information for a screen.  It is always
+    located within the TMUI FORM.  There is one TSCR FORM for each screen.
+    As of V1.19 only one TSCR FORM is created and looked for.  A TSCR FORM
+    exists even if the Workbench screen is used instead of a custom screen.
+
+  TSDA
+
+    The TSDA chunk contains general screen data.  It is always located within
+    a TSCR FORM.  For the Workbench screen only the displayID and mode fields
+    are used.  All others are ignored.
+
+      - ULONG displayID - DisplayID as defined in <graphics/modeid.h>.
+                          (0 = Workbench screen)
+
+      - ULONG width - the screen's width.
+
+      - ULONG height - the screen's height.
+
+      - ULONG depth - the screen's depth (number of bitplanes).
+
+      - ULONG overscan - overscan as defined in <intuition/screens.h>.
+
+      - ULONG TMflags - Toolmaker screen flags.
+
+                        bit  0-2: reserved
+                        bit    3: 1 = open at start
+                        bit 4-31: reserved
+
+      - ULONG mode - Toolmaker internal screen mode flags.  Future versions
+                     of Toolmaker may ignore this info since this data is
+                     redundant.
+
+                     bit     0: 1 = NTSC
+                     bit     1: 1 = PAL
+                     bit     2: 1 = Interlace
+                     bit     3: 1 = HIRES
+                     bit     4: 1 = SuperHIRES
+                     bit     5: 1 = Productivity
+                     bit     6: 1 = A2024 10Hz
+                     bit     7: 1 = A2024 15Hz
+                     bit     8: 1 = Overscan TEXT
+                     bit     9: 1 = Overscan STANDARD
+                     bit    10: 1 = Overscan MAX
+                     bit    11: 1 = Overscan VIDEO
+                     bit    12: reserved
+                     bit    13: 1 = Custom palette
+                     bit    14: 1 = Default width
+                     bit    15: 1 = Default height
+                     bit 16-30: reserved
+                     bit    31: 1 = Workbench
+
+      - struct Rectangle reserved
+
+      - ULONG reserved
+
+      - ULONG reserved
+
+      - ZTS title - the screen's title bar text.
+
+      - ZTS label - the screen's source code label.
+
+      - ZTS reserved
+
+  CMAP
+
+    The CMAP chunk contains color map data for the screen.  It is in the same
+    format as the CMAP in the ILBM FORM and is always located within a TSCR
+    FORM.  There are three UBYTEs for each bitplane of the screen.
+
+      - UBYTE red level.
+
+      - UBYTE green level.
+
+      - UBYTE blue level.
+
+        .
+        .
+        .
+
+  TWIN
+
+    The TWIN FORM contains all information for a window.  It is always
+    located within a TSCR FORM.  There is one TWIN FORM for each window
+    of the screen.
+
+  TWDA
+
+    The TWDA chunk contains general window data.  It is always located within
+    a TWIN FORM.
+
+      - ULONG IDCMP - the window's IDCMP flags.
+
+      - ULONG TMflags - Toolmaker window flags.
+
+                        bit    0: 1 = gimmezerozero
+                        bit    1: reserved
+                        bit    2: 1 = open at start
+                        bit 4-31: reserved
+
+      - ULONG reserved
+
+      - ULONG reserved
+
+      - ZTS title - the window's title bar text.
+
+      - ZTS label - the window's source code label.
+
+      - ZTS reserved
+
+  TMEN
+
+    The TMEN FORM contains all information for a menu.  It is always located
+    within a TWIN FORM.  There is one TMEN FORM for each menu within a menu
+    bar.
+
+  TMDA
+
+    The TMDA chunk contains general menu data.  It is always located within a
+    TWIN FORM.
+
+      - ULONG number - the menu's number counting from the left.  For V1.19
+                       this number is ignored and the menus are expected to be
+                       in the correct order within the TWIN FORM.
+
+      - UWORD flags - the menu's flags as defined in <intuition/intuition.h>.
+
+      - ULONG TMflags - Toolmaker menu flags.
+
+                        bit 0-31: reserved
+
+      - ULONG reserved
+
+      - ULONG reserved
+
+      - ZTS text - the menu's text
+
+      - ZTS label - the menu's source label
+
+      - ZTS reserved
+
+  TITE
+
+    The TITE FORM contains all information for a menu item.  It is always
+    located within a TMEN FORM.  There is one TITE FORM for each item within
+    the menu.
+
+  TIDA
+
+    The TIDA chunk contains general a menu item data.  It is always located
+    within a TITE FORM.
+
+      - ULONG number - the item's number counting from the top.  For V1.19
+                       this number is ignored and the items are expected to be
+                       in the correct order within the TMEN FORM.
+
+      - UWORD flags - the item's flags as defined in <intuition/intuition.h>.
+
+      - ULONG TMflags - Toolmaker menu item flags.
+
+                        bit    0: 1 = mutual exclude all other items.
+                        bit 1-31: reserved
+
+      - ULONG reserved
+
+      - ULONG reserved
+
+      - ULONG reserved
+
+      - ZTS text - the item's text.
+
+      - ZTS commkey - a character for the item's keyboard shortcut.
+
+      - ZTS label - the item's source code label.
+
+      - ZTS reserved
+
+  TSID
+
+    The TSID chunk contains all information for a menu subitem.  It is always
+    located within a TITE FORM.  There is one TSID chunk for each subitem
+    within an item.
+
+      - ULONG number - the subitem's number counting from the top.  For V1.19
+                       this number is ignored and the subitems are expected to be
+                       in the correct order within the TITE FORM.
+
+      - UWORD flags - the subitem's flags as described in <intuition/intuition.h>.
+
+      - ULONG TMflags - Toolmaker menu subitem flags.
+
+                        bit    0: 1 = mutual exclude all other subitems.
+                        bit 1-31: reserved
+
+      - ULONG reserved
+
+      - ULONG reserved
+
+      - ULONG reserved
+
+      - ZTS text - the subitem's text.
+
+      - ZTS commkey - the subitem's keyboard shortcut character. (Ex: "A")
+
+      - ZTS label - the subitem's source code label.
+
+      - ZTS reserved
+
+  TGAD
+
+    The TGAD FORM contains all information for a gadget.  It is always located
+    within a TWIN FORM.  There is one TGAD FORM for each gadget within the
+    window.
+
+  TGDA
+
+    The TGDA chunk contains general gadget data.  It is always located within
+    a TGAD FORM.
+
+      - ULONG number - the gadgets's number counting from the first one to
+                       display.  For V1.19 this number is ignored and the
+                       gadgets are expected to be in the correct order within
+                       the TWIN FORM.
+
+      - ULONG kind - the gadget's kind as described in <libraries/gadtools.h>.
+
+      - ULONG TMflags - Toolmaker gadget flags.
+
+                        bit 0-31: reserved
+
+      - struct NewGadget newgadget - the gadget's NewGadget structure.
+                                     The ng_GadgetText, ng_TextAttr,
+                                     ng_GadgetID, ng_VisualInfo, and
+                                     ng_UserData fields are ignored.
+
+                                     * The ng_TopEdge is from the bottom of
+                                     the window's top border and the
+                                     ng_LeftEdge is from the right edge of
+                                     the window's left border if the Auto Top
+                                     Border setting is on.
+
+      - ULONG reserved
+
+      - ULONG reserved
+
+      - ZTS text - the gadget's text.
+
+      - ZTS label - the gadget's source code label.
+
+      - ZTS reserved
+
+  TFON
+
+    The TFON FORM contains all information for a font.  It may be located
+    within a TSCR or TGAD FORM.
+
+  TTAT
+
+    The TTAT chunk contains general font data.  Is is always located within
+    a TFON FORM.
+
+      - struct TextAttr textattr - the font's TextAttr structure.  The ta_Name
+                                   field is ignored.
+
+      - ZTS name - the font's name (Ex: "topaz.font").
+
+  TINT
+
+    The TINT chunk contains information for an integer tag.  It may be located
+    within a TSCR, TWIN, TGAD, or TFON FORM.
+
+      - ULONG tag - the tag.
+
+      - ULONG data - the tag's integer value.
+
+      - ULONG reserved
+
+      - ZTS data - the tag's value in character form.  This is used mostly
+                   for constants such as TRUE and FALSE.  (Ex: "TRUE" or "1")
+
+  TCHA
+
+    The TCHA chunk contains information for a character tag.  It may be located
+    within a TSCR, TWIN, TGAD, or TFON FORM.
+
+      - ULONG tag - the tag.
+
+      - ULONG character - the tag's ASCII character value (Ex: 'a' or 'b')
+
+      - ULONG reserved
+
+      - ZTS character - the tag's value in character form. (Ex: "a" or "b")
+
+  TWLS
+
+    The TWLS chunk contains information for a WORD list tag.  It may be located
+    within a TSCR, TWIN, TGAD, or TFON FORM.
+
+      - SHORT count - the number of WORDs in the list.
+
+      - ULONG tag - the tag.
+
+      - ULONG reserved
+
+      - WORD[count] - the list of WORDs.
+
+  TSTR
+
+    The TSTR chunk contains information for a string tag.  It may be located
+    within a TSCR, TWIN, TGAD, or TFON FORM.
+
+      - ULONG tag - the tag.
+
+      - ULONG reserved
+
+      - ULONG reserved
+
+      - ZTS string - the string.
+
+  TSLS
+
+    The TSLS chunk contains information for a string list tag.  It may be
+    located within a TSCR, TWIN, TGAD, or TFON FORM.
+
+      - SHORT count - the number of strings in the list.
+
+      - ULONG tag - the tag.
+
+      - ULONG reserved1[count] - a reserved ULONG for each string in the list.
+
+      - ULONG reserved2[count] - a reserved ULONG for each string in the list.
+
+      - ZTS string[count] - the list of strings.
+
+      - ZTS label[count] - the source labels for each string.
+
+  TLLS
+
+    The TLLS chunk contains information for a linked list tag.  It may be
+    located within a TSCR, TWIN, TGAD, or TFON FORM.
+
+      - SHORT count - the number of items in the list.
+
+      - ULONG tag - the tag.
+
+      - ULONG reserved1[count] - a reserved ULONG for each item in the list.
+
+      - ULONG reserved2[count] - a reserved ULONG for each item in the list.
+
+      - ZTS item[count] - the list of items.
+
+      - ZTS label[count] - the source labels for each item.
+
+  TNIN
+
+    The TNIN chunk contains information for a non-interactive tag.  It may be
+    located within a TSCR, TWIN, TGAD, or TFON FORM.
+
+      - ULONG tag - the tag.
+
+      - ULONG reserved
+
+      - ZTS data - the tag's value in character form. (Ex: "TRUE" or "12")
+
+

@@ -1,0 +1,372 @@
+Line by line palette control information (Sebastiano Vigna)
+
+                                    PCHG
+
+          A proposal for a new line-by-line palette control format
+
+                            by Sebastiano Vigna
+
+                        *** Preliminary version ***
+
+                      $VER: PCHG specs 0.6 (28.11.91)
+
+
+
+After struggling a lot with CTBL, SHAM, and whatever else was invented for
+specifying palette changes at every scan line in order to implement them in
+Mostra (my ILBM viewer), I decided there was no way to make them really
+work. Each program uses them in a different way, with different
+non-documented specifications. SHAM is hardwired to 200 lines, and the color
+of the last pixels of a screen depends on the horizontal position of the
+screen itself because of a wrong computation of the free Copper DMA slots.
+CTBL is theoretically undisplayable without freezing everything and yet all
+images I ever saw changed much less than 15 colors per scan line, which you
+can perfectly do with the Copper (thanks to ASDG's DDHR utility for this
+info). There is moveover a great confusion about the role of the CMAP chunk
+with respect to all those guys.
+
+Yet the technology is very simple. Just change some color register each scan
+line. Very Amiga specific, but it works, and it works really well.
+
+This document describes the PCHG (Palette Changes) chunk, an ILBM property
+chunk for controlling efficiently and reasonably the palette changes at each
+scan line. Also, I included technical info and code about the current
+allowable per line palette changes.
+
+This proposal is a team work. It was lively discussed with many other
+people, including Joanne Dow, Andy Finkel, J. Edward Hanway, Charles Heath,
+David Joiner, Jim Kent, Ilya Shubentsov, Mike Sinz, Loren Wilton. There is
+certainly some other people I'm forgetting to mention though.
+
+What's good in what follows was suggested by them. I'm responsable for any
+error, omission, bad English and bad design.
+
+
+
+                                Design goals
+
+- Being able to specify *only* the changes which are really required.
+
+- Being able to specify 24-bit precision color changes, and an alpha channel.
+
+- Specifying correctly the relation PCHG<->CMAP.
+
+- Getting a chunk which is usually smaller than SHAM or CTBL.
+
+- Having a policy about Copper-only displayability.
+
+- Being able to change 65536 registers.
+
+- Specifying two storage formats: a very dense 4-bit 32 register format for
+current technology, and an open-ended, 24-bit+alpha channel, 65536 registers
+format with compression for all future uses.
+
+- Distributing public domain code for PCHG compression/decompression and
+Copperlist building.
+
+
+
+                            Informal description
+
+PCHG starts with the following header:
+
+struct PCHGHeader {
+   UWORD Compression;
+   UWORD Flags;
+   WORD  StartLine;
+   UWORD LineCount;
+   UWORD MinReg;
+   UWORD MaxReg;
+   UWORD TreeSize;
+   UWORD Reserved;
+   ULONG OriginalSize;
+};
+
+The only Compression values currently defined are PCHG_COMP_NONE and
+PCHG_COMP_HUFFMANN. The Flags field has three bits currently defined,
+PCHGF_4BIT, PCHGF_32BIT, PCHGF_USE_ALPHA. The StartLine and LineCount fields
+specify the range controlled by the line mask, as we will see later. The
+MinReg and MaxReg fields tells you the minimum and the maximum register
+changed in the chunk. Their purpose is to allow optimization (such as
+grouping of the modified registers in some special bank). OriginalSize
+contains the size of the rest of the chunk when it will be decompressed (if
+no compression is selected, OriginalSize should anyway be set to the size of
+the rest of the chunk, i.e., ChunkSize-sizeof(struct PCHGHeader)).
+
+If Compression is PCHG_COMP_HUFFMANN, the rest of the chunk is compressed.
+The first TreeSize bytes contain the decompression tree, and then the
+compressed chunk (originally OriginalSize bytes long) follows. See the
+section Compression for information about the format used by PCHG.
+
+First of all, there is a array of (LineCount+31)/32 longwords (that is, a
+bit mask of LineCount bits rounded up to the nearest longword). Each bit in
+the mask tells you if there are palette changes in the corresponding line.
+Bit 0 corresponds to line StartLine, bit 1 to line StartLine+1 and so on.
+Note that StartLine is a (possibly negative) offset from the top of the
+screen.
+
+The information about the palette changes is stored immediately after the
+bit mask. For each bit set to 1 in the mask there is a variable length
+structure. These structures are recorded contiguously, and they are
+different depending on the PCHGF_4BIT or the PCHGF_32BIT flags being set. In
+the first case, we use
+
+struct SmallLineChanges {
+   UBYTE ChangeCount16;
+   UBYTE ChangeCount32;
+   UWORD PaletteChange[];
+};
+
+The PaletteChange array contains ChangeCount16+ChangeCount32 elements. For
+each element, the lower 12 bits specify a color in 4-bit RGB form, while
+the upper 4 bits specify the register number. More precisely, for the
+first ChangeCount16 elements you take as register number the upper
+4 bits, and for the following ChangeCount32 elements you take as register
+number the upper 4 bits+16. Thus, you can address a 32 register palette.
+
+In the second case, we use
+
+struct BigLineChanges {
+   UWORD ChangeCount;
+   struct BigPaletteChange PaletteChange[];
+};
+
+where
+
+struct BigPaletteChange {
+   UWORD Register;
+   UBYTE Alpha, Red, Blue, Green;
+};
+
+The array PaletteChange contains ChangeCount elements. For each elements,
+Register specify the register number, while the Alpha, Red, Blue, Green
+values specify the 8-bit content of the respective channels. Alpha should
+be used only if the PCHGF_USE_ALPHA flag is set in the header.
+
+
+CMAP and PCHG don't interfere. It's up to the intelligence of the IFF ILBM
+writer using CMAP for the first line color register values, and then
+specifying the changes from line 1 (2 for laced pictures) onwards using
+PCHG. CMAP has to be loaded, as specified by the IFF ILBM specs.
+
+Note that PCHG is mainly a time saver chunk. The ``right thing'' for a
+program should be generating at run-time the palette changes when a picture
+with more colors than available on the hardware has to be shown. However,
+the current computational power make this goal unrealistic. PCHG allows to
+display in a very short time images with lot of colors on the current Amiga
+hardware. It can be also used to write down a custom Copper list (maybe
+changing only the background color register) together with an image.
+
+Some politeness is required from the PCHG writer. PCHG allows you to specify
+as many as 65535 per line color changes, which are a little bit unrealistic
+on the current hardware. Programs should never save with a picture more
+changes than available by using Copper lists only. This issue is thouroughly
+explained in the ``Writing changes'' section.
+
+This kind of politeness is enforced by the specification. I have yet to see
+people which is interested in freezing their machine just in order to view a
+picture. DMA contention is a thing, lockup is another. PCHG chunks which do
+not conform to the rules explained below are to be considered syntactically
+incorrect. If you want specify more changes that available through the
+system Copper calls CWAIT/CMOVE, please use another chunk and don't mess up
+the PCHG interpretation.
+
+
+
+                                Compression
+
+
+(Caveat: you don't need to read this if you're not really interested because
+there are ready-to-use C functions for compression and decompression;
+moreover, 4-bit PCHG chunks are usually so entropic that the size gain is
+less than the size of the tree, so you shouldn't compress them.)
+
+PCHG uses a classical static Huffmann encoding for the line mask and the
+LineChanges array. The coding tree is recorded just before the compressed
+data in a form which takes 1022 bytes or less (usually ~700). Its (byte)
+length is stored in the TreeSize field of the PCHGHeader structure.
+Moreover, this form is ready for a fast and short decompression
+algorithm---no preprocessing is needed. For references about the Huffmann
+encoding, see Sedgewick's ``Algorithms in C''. Note that the number of
+compressed data bits stored is rounded up to a multiple of 32 (the
+decompression routine knows the original length of the data, so the
+exceeding bits won't be parsed).
+
+The format of the tree is recursive. We start to code from the end of a 511
+WORD array, and we work backwards. To code an internal node at the position
+WORD *Pos, the left subtree is recorded at Pos-1 with a code of length t,
+and the left subtree is coded at Pos-1-t. Then an offset (-t-1)*2 is stored
+in Pos, and the length of the resulting coding is 1+t+length of the left
+subtree code. An external node is coded as the character associated with the
+eighth bit set. As a final optimization, if the left subtree to code is an
+external node, we just store the character associated in the place of the
+negative offset
+
+For instance, the tree
+
+                                /\
+                               /  \
+                              a    b
+
+is coded as the word array [ a | 0x100 ] [ b ]. Note that without the eighth
+bit trick, it would be impossible to store this tree, since it would be
+confused with the tree formed by the external node b only.
+
+Another simple example:
+
+                                 /\
+                                /  \
+                               /    \
+                              /\    /\
+                             /  \  /  \
+                            a   b  c  /\
+                                     /  \
+                                    d    e
+
+
+is coded as
+
+    [ d | 0x100 ] [ e ] [ c | 0x100 ] [ -4 ] [ a | 0x100 ] [ b ] [ -6 ].
+
+Decompression is very easy. We start from the end of the tree code.
+
+If we pick a 0 bit in the packed data, we move a word to the left and fetch
+the current word. If it's positive and with the 8th bit set the tree is
+finished and we store to the destination the lower byte of the word we
+fetched, otherwise we pick another bit.
+
+If we pick a 1 bit, we fetch the current word. If it's positive, we store
+it. Otherwise we add it to the current position and we pick another bit.
+(Here you can see the reason why the offset is not stored as a word offset,
+but rather as a byte offset. We avoid a conversion word->byte offset for
+each bit set to 1 of the source).
+
+
+
+
+                              Writing changes
+
+PCHG is a machine-independent format. Nonetheless, it's been developed
+mainly for supporting the Amiga Copperlist palette changes. Thus, it's not a
+surprise to find included with the format definition a policy about the
+amount of color changes which you should write.
+
+Under the current Amiga hardware and system software, you should never
+generate more than 7 (seven) changes per line. Moreover, in laced pictures
+the changes can only happen on even lines. Thus, for a 400 lines laced
+picture you have 200*7=1400 color changes at lines 0, 2, 4, etc., while for
+a 256 lines non laced picture you have 256*7= 1792 color changes at lines 0,
+1, 2, etc. Of course you can save less changes, or no changes at all on some
+lines.
+
+The point here is that you shouldn't save more changes than that. If you
+want to write a picture with more changes, or changes on odd laced lines,
+please make aware the user of the fact that probably most viewer supporting
+PCHG won't be able to display it. The Amiga community has been already
+bitten by the problems of SHAM and CTBL, and we have neither need nor will
+of repeating the experience.
+
+Of course, when faster, better Amiga chips will be around, this magic number
+will change. But for the time being, this is the system limitation.
+
+If you have a technical background about the Copper, that's why:
+
+The Copper y register has 8-bits resolution. When it arrives at the 255th
+video line, it wraps up to 0. Thus, the system places a WAIT(226,255) Copper
+instruction in order to stop correctly the video display on PAL screens.
+
+If you want more than 7 changes, you have to start poking the color
+registers with the Copper just after a video line is finished (as SHAM). But
+on the 255th video line, MrgCop() will merge your user Copperlist with the
+system one in such a way that the WAIT(226,255) will happen *after* the
+counter wrapped, so the Copper will be locked until the next vertical blank.
+As a result, the following color changes won't be executed, and some trash
+will be displayed at the bottom of the screen (this indeed happens with
+SHAM).
+
+In order to avoid this, it is necessary to use only WAIT(0,<line>)
+instructions. The time available before the display data fetch start allows
+only 7 color changes, and wide range experiments confirmed this.
+
+Finally, due to a limitation of MrgCop(), it's not possible specifying WAITs
+on odd interlaced lines.
+
+
+
+
+                            The transition phase
+
+
+This specification is distributed with a complete set of C functions which
+take care of compression, decompression and Copperlist building. Adding
+support for PCHG in your programs should be pretty straightforward.
+
+
+
+
+                            Formal specification
+
+struct PCHGHeader {
+   UWORD Compression;
+   UWORD Flags;
+   WORD  StartLine;
+   UWORD LineCount;
+   UWORD MinReg;
+   UWORD MaxReg;
+   UWORD TreeSize;
+   UWORD Reserved;
+   ULONG OriginalSize;
+};
+
+struct SmallLineChanges {
+   UBYTE ChangeCount16;
+   UBYTE ChangeCount32;
+   UWORD PaletteChange[];
+};
+
+struct BigLineChanges {
+   UWORD ChangeCount;
+   struct BigPaletteChange PaletteChange[];
+};
+
+struct BigPaletteChange {
+   UWORD Register;
+   UBYTE Alpha, Red, Blue, Green;
+};
+
+PCHG ::= "PCHG" #{ (struct PCHGHeader) (LINEDATA | COMPLINEDATA) }
+
+
+COMPLINEDATA ::= { TREE COMPDATA }
+TREE ::= { UWORD* }
+COMPDATA ::= { ULONG* }
+
+COMPDATA, when unpacked, gives a LINEDATA.
+
+
+LINEDATA ::= { LINEMASK ((struct SmallLineChanges)* | (struct BigLineChanges)*) }
+LINEMASK ::= { ULONG* }
+
+The following relations hold:
+
+#LINEDATA == PCHGHeader.OriginalSize
+#LINEMASK == ((PCHGHeader.LineCount+31)/32)*4
+#TREE  == PCHGHeader.TreeSize
+
+PCHG is a property chunk. For the meaning of the above grammar, see the IFF
+documentation (the grammar does not give account for all the aspects of PCHG
+though). Note that my use of the [] notation for variable length arrays is
+not a C feature, but a shorthand.
+
+
+Please comment as soon as possible this document. You can use mail or
+e_mail as you prefer.
+
+    Sebastiano Vigna
+    Via Valparaiso 18
+    I-20144 Milano MI
+
+    BIX: svigna
+    UUCP:...{uunet|piramid|rutgers}!cbmvax!cbmehq!cbmita!sebamiga!seba
+
+==========================

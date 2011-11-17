@@ -1,0 +1,64 @@
+eXtended BitMap Information (Soft-Logik)
+
+Chunk XBMI for FORM ILBM
+========================
+
+Submitted by Dan Weiss, Deron Kazmaier, and Gary Knight (8/29/91)
+
+Chunk ID: "XBMI" (eXtended BitMap Information)
+Description:  This chunk will hold the horizontal and vertical dots per inch,
+and the picture type.  Each entry is one word (two bytes) in length for a total
+chunk length of three words.  The first word holds the picture type.  Currently
+we have defined 6 types of pictures:
+
+#define ILBM_PAL        0       /* BODY data = indexes into the palette (CMAP)
+                                 * numcolors = 1<<depth;
+                                 */
+
+#define ILBM_GREY       1       /* BODY =  grayscale values
+                                 * Bits per sample = number of bitplanes.
+                                 * Samples per pixel = 1.
+                                 * black = 0, white = (1<<depth)-1;
+                                 */
+
+#define ILBM_RGB        2       /* BODY data = red, green, and blue values.
+                                 * Bits per sample = depth/3.
+                                 * Samples per pixel = 3.
+                                 */
+
+#define ILBM_RGBA       3       /* BODY data = red, green, blue, and alpha
+                                 * channel values.
+                                 * Bits per sample = depth/4.
+                                 * Samples per pixel = 4.
+                                 */
+
+#define ILBM_CMYK       4       /* BODY data = cyan, magenta, yellow, and black
+                                 * values.
+                                 * Bits per sample = depth/4.
+                                 * Samples per pixel = 4.
+                                 */
+
+#define ILBM_CMYKA      5       /* BODY data = cyan, magenta, yellow, black,
+                                 * and alpha channel values.
+                                 * Bits per sample = depth/5.
+                                 * Samples per pixel = 5.
+                                 */
+
+#define ILBM_BW         6       /* BODY data = black and white bits.
+                                 * Bits per sample = 1.
+                                 * Samples per pixel = 1.
+                                 * white = 0, black = 1.
+                                 */
+
+The second and third words hold the number of dots per inch in the horizontal
+and vertical directions respectively.
+
+Example:
+
+                        XBMI            ;chunk ID
+                        00000006        ;chunk length (6 bytes)
+                        0002            ;picture type (2==ILBM_RGB)
+                        012C            ;x dpi (300)
+                        012C            ;y dpi (300)
+
+

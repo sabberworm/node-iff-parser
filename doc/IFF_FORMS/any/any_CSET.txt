@@ -1,0 +1,13 @@
+chunk for specifying character set
+
+Registered by Martin Taillefer.
+
+A chunk for use in any FORM, to specify character set used for
+	text in FORM.
+
+
+struct CSet {
+	LONG	CodeSet;	/* 0=ECMA Latin 1 (std Amiga charset) */
+				/* CBM will define additional values  */
+	LONG	Reserved[7];
+	}

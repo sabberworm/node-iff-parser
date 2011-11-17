@@ -1,0 +1,86 @@
+FAXX (Facsimile image FORM)
+
+IFF FORM / CHUNK DESCRIPTION
+============================
+
+Form/Chunk IDs:
+    FORM:   FAXX
+    Chunks: FXHD, PAGE, FLOG
+
+Date Submitted: 11/13/91
+Submitted by:   Christopher E. Darsch - Atlantis Design Group, Inc.
+Revision:       1.0
+
+
+FXHD Chunk
+==========
+
+    The required property chunk "FXHD" contains a FaxHeader as defined in
+the following header file.  The FaxHeader contains data necessary to interpret
+the data chunk "PAGE".  The pixel size of the image can be determined from the
+contents of the FaxHeader structure, as well as the dimensions of the source
+document.  The compression method used to encode the "PAGE" chunk is also part
+of the FaxHeader.
+
+PAGE Chunk
+==========
+
+    The required data chunk "PAGE" contains the encoded bit-packed fax image
+data that is transmitted/received during phase C of a facsimile communication.
+The data always begins with a fax EOL (End of line = 0x001) and ends
+with a fax RTC (Return to control = six consecutive EOLs).
+
+    A multiple-page fax can be stored variously as multiple files or, most
+preferably, as an IFF LIST object with a shared FXHD chunk.
+
+FLOG Chunk
+==========
+
+    The optional data chunk "FLOG" contains log information about a received
+fax.  The specification for this chunk will be submitted at a later date.
+
+
+
+/***************************************************************************/
+/* FaxxIFF.h                                                               */
+/***************************************************************************/
+
+#define ID_FAXX     MakeID('F','A','X','X')
+#define ID_FXHD     MakeID('F','X','H','D')
+#define ID_PAGE     MakeID('P','A','G','E')
+#define ID_FLOG     MakeID('F','L','O','G')
+
+/* LineLength Codes */
+
+#define FXLNGSTD    215     /* 1728 pixels along std line lng of 215mm */
+#define FXLNGLONG   255     /* 2048 pixels along opt line lng of 255mm */
+#define FXLNGLONGER 303     /* 2432 pixels along opt line lng of 303mm */
+#define FXLNGA5     151     /* 1216/1728 pixels along opt line lng of 151mm */
+#define FXLNGA6     107     /* 864/1728 pixels along opt line lng of 107mm */
+
+/* VRes Codes */
+
+#define FXVRESNORM  385     /* Normal resolution: 3.85 lines/mm */
+#define FXVRESFINE  770     /* Fine resolution: 7.7 lines/mm */
+
+/* Compression Codes */
+/* Codes 129, 130, and 131 are reserved */
+
+#define FXCMPNONE   0       /* No compression -- available under Group IV */
+#define FXCMPMH     1       /* One-dimensional (MH) coding */
+#define FXCMPMR     2       /* Two-dimensional (MR) coding */
+#define FXCMPMMR    4       /* Modified Two-dimensional (MMR) coding */
+
+typedef struct {
+    UWORD Width, Height;    /* Image width and height, in pixels */
+    UWORD LineLength;       /* Scan line length, in millimeters */
+    UWORD VRes;             /* Vertical Resolution, in lines/100mm */
+    UBYTE Compression;      /* Compression method */
+    UBYTE Pad[11];          /* Room for expansion */
+} FaxHeader;
+
+==========================
+
+
+Note:  You may also find "GPHD" chunks in FAXX files.   This is an
+additional header used by one software producer.  See "FAXX.GPHD.doc"

@@ -1,0 +1,231 @@
+For storage of Y:U:V image data (MacroSystem)
+
+
+yuvn.doc:
+---------------------------------------------------------------------------
+                                 FORM YUVN
+                               developed by:
+                  MS MacroSystem Computer GmbH (Germany)
+                              Henning Friedl
+                                 (18.4.92)
+---------------------------------------------------------------------------
+FORM YUVN
+
+The IFF-format YUVN is designed to store YUV-pictures which mainly are used
+in  broadcast  television.   YUVN  supports CCIR-601-2 which is a worldwide
+standard for PAL- and NTSC-television.
+
+---------------------------------------------------------------------------
+Chunk 'YCHD'
+
+The  required property 'YCHD' holds a header which describes the dimensions
+of  the  image and some other information which are necessary to understand
+the data in the following data-chunks.  The chunk 'YCHD' must appear before
+the first data-chunk ('DATY').
+
+You will find all definitions of this chunk in the file 'yuvn.i'.
+
+---------------------------------------------------------------------------
+
+Explanations on the components of the chunk 'YCHD':
+
+
+ychd_Width
+
+ychd_Width  indicates  the  width of the stored image.  Using YUV_MODE_411,
+the width must be a multiple of four, usind YUV_MODE_422 or YUV_MODE_211 it
+must  be a multiple of two!  Using YUV_MODE_444, YUV_MODE_400, YUV_MODE_222
+or YUV_MODE_200 width may be any value.
+
+The  number  of U- and V-pixels per line depends on the used YUV_MODE.  See
+the table below for details.
+
+            Mode             |    Y-pixels    |    U-pixels    |    V-pixels
+-----------------------------+----------------+----------------+---------------
+YCHD_MODE_400, YCHD_MODE_200 | ychd_Width     |       -        |       -
+YCHD_MODE_411                | ychd_Width (4) | ychd_Width / 4 | ychd_Width / 4
+YCHD_MODE_422, YCHD_MODE_211 | ychd_Width (2) | ychd_Width / 2 | ychd_Width / 2
+YCHD_MODE_444, YCHD_MODE_222 | ychd_Width     |   ychd_Width   |   ychd_Width
+
+(2) means, in this mode ychd_Width MUST be a multiple of two!
+(4) means, in this mode ychd_Width MUST be a multiple of four!
+
+
+ychd_Height
+
+ychd_Height  indicates  the  height  (number  of  rows) of the image.  If a
+full-frame picture is stored, ychd_Height must be a multiple of two!
+
+
+ychd_PageWidth, ychd_PageHeight
+
+These  fields describe the dimensions of the source page.  The image itself
+can  be  smaller  or  larger.   If  not  used,  set  this to ychd_Width and
+ychd_Height.
+
+
+ychd_LeftEdge, ychd_TopEdge
+
+These  fields  indicate  the  desired  position  of  this  image within the
+destination picture.  If not used, set to 0,0.
+
+
+ychd_xAspect, ychd_yAspect
+
+The aspect ratio of a single pixel in the stored image.  If you do not know
+the correct values (you should know them) use the following:
+
+PAL-nonlace:   22/44           NTSC-nonlace:  22/52
+PAL-lace:      22/22           NTSC-lace:     22/26
+
+See also: 'Finding the Aspect Ratio' by Carolyn Scheppner (AmigaMail 9/10-91)
+
+
+ychd_Compress
+
+Type of compression.  0, if none.
+
+
+ychd_Flags
+
+Different  Flags.  Currently only bit-0 (YCHDB_LACE) is defined.  It should
+be  set if the stored image has been a full-frame image within an interlace
+video-source (TV, VTR, ...).
+
+
+ychd_Mode
+
+The type of YUV-format.  If you only want to save the luminance information
+(black-and-white)   set  ychd_Mode  to  YCHD_MODE_400.   If  you  save  the
+additional color-difference-signals U and V set ychd_Mode to YCHD_MODE_411,
+YCHD_MODE_422  or  YCHD_MODE_444  depending  what  format you want to save.
+With lores-pictures use YCHD_MODE_200, YCHD_MODE_211 or YCHD_MODE_222.
+
+
+ychd_Norm
+
+Information  on  the TV-system you got this picture from.  If you really do
+not  know  set ychd_Norm to YCHD_NORM_UNKNOWN.  The better way is to set it
+to the correct value YCHD_NORM_PAL or YCHD_NORM_NTSC!
+
+---------------------------------------------------------------------------
+
+The data-chunks DATY, DATU and DATV
+
+In  the  IFF-file the chunks DATY, DATU and DATV must appear in this order.
+The optional chunks DATU and DATV are both needed in color-pictures.
+
+
+The data-chunk DATY
+
+The  chunk  DATY  contains the luminance-data (Y) of the YUV-picture.  Each
+pixel  is stored in one byte (8 bits), the values follow the CCIR-standard.
+Y  ranges  from  16 (black) to 235 (white).  Isolated pixels may go lightly
+beyond the limits but 0 and 255 must not appear!
+
+The number of pixels in one line is given in ychd_Width.  One line directly
+follows  the  other,  there  are  no  pad-bytes  between  two lines even if
+ychd_Width  is odd.  Only at the end of the chunk a pad-byte ($00) might be
+inserted according the IFF guidelines.
+
+Within  a  full-frame- (interlaced-) picture the lines are ordered as if it
+was  a  non-lace  picture  (first line, first frame then first line, second
+frame  then second line first frame, ...).  This is the same in IFF-ILBM or
+the order of the bitmaps in Amiga-memory.
+
+
+The data-chunks DATU and DATV
+
+The   chunks   DATU   and  DATV  are  optional,  they  have  to  appear  in
+color-pictures because they contain the color-difference-signals.
+
+Each  pixel  is  stored  in  one  byte  (8  bits),  the  values  follow the
+CCIR-standard.   The  values  range  from  16  to  240  (128 means 0).  For
+calculations you have to subtract 128 so U or V are in a range from -112 to
+112  where  0  means  no  color.  Isolated pixels may go lightly beyond the
+limits but 0 and 255 must not appear!
+
+---------------------------------------------------------------------------
+
+
+yuvn.i:
+---------------------------------------------------------------------------
+
+
+               IFND      YUVN_I
+YUVN_I         SET       1
+;---------------------------------------------------------------------------
+             IFND        EXEC_TYPES_I
+               INCLUDE   "exec/types.i"
+             ENDC
+;---------------------------------------------------------------------------
+;---- ID's used in FORM YUVN
+
+ID_YUVN:       equ       'YUVN'             ;the FORM-ID
+ID_YCHD:       equ       'YCHD'             ;the header-chunk-ID
+ID_DATY:       equ       'DATY'             ;the Y-data-chunk-ID
+ID_DATU:       equ       'DATU'             ;the U-data-chunk-ID
+ID_DATV:       equ       'DATV'             ;the V-data-chunk-ID
+
+;---- values for ychd_Compress
+
+COMPRESS_NONE  equ       0                  ;no comression
+
+;---- values for ychd_Flags
+
+YCHDB_LACE     equ       0                  ;if set the data-chunks contain
+YCHDF_LACE     equ       1                  ;a full-frame (interlaced) picture
+
+;---- values for ychd_Mode
+
+YCHD_MODE_400     equ    0       ;a black-and-white picture (no DATU and DATV)
+YCHD_MODE_411     equ    1       ;a YUV-411 picture
+YCHD_MODE_422     equ    2       ;a YUV-422 picture
+YCHD_MODE_444     equ    3       ;a YUV-444 picture
+
+YCHD_MODE_200     equ    8       ;a lores black-and-white picture
+YCHD_MODE_211     equ    9       ;a lores color picture (422, but lores)
+YCHD_MODE_222     equ    10      ;a lores color picture (444, but lores)
+
+YCHD_MODEB_LORES  equ    3       ;test this bit to check for lores/hires
+YCHD_MODEF_LORES  equ    8
+
+;---- values for ychd_Norm
+
+YCHD_NORM_UNKNOWN equ    0       ;unknown, try to avoid this
+YCHD_NORM_PAL     equ    1       ;PAL 4.433 MHz
+YCHD_NORM_NTSC    equ    2       ;NTSC 3.579 MHz
+
+;---- the FORM-YUVN DataHeader: 'YCHD'
+
+ STRUCTURE __YCHD_Header,0
+
+               UWORD     ychd_Width        ;picture width in Y-pixels
+               UWORD     ychd_Height       ;picture height (rows)
+
+               UWORD     ychd_PageWidth    ;source page width & height,
+               UWORD     ychd_PageHeight   ;  normally same as Width and Height
+
+               UWORD     ychd_LeftEdge     ;position within the source page,
+               UWORD     ychd_TopEdge      ;  normally 0,0
+
+               UBYTE     ychd_AspectX      ;pixel aspect (width : height)
+               UBYTE     ychd_AspectY      ;
+               UBYTE     ychd_Compress     ;(see above)
+               UBYTE     ychd_Flags        ;(see above)
+
+               UBYTE     ychd_Mode         ;(see above)
+               UBYTE     ychd_Norm         ;(see above)
+
+               WORD      ychd_reserved2    ;must be 0
+
+               LONG      ychd_reserved3    ;must be 0
+
+               LABEL     ychd_SIZEOF
+;---------------------------------------------------------------------------
+; Warning, the UBYTE fields are byte-packed, C-compilers should not add pad
+; bytes!
+;---------------------------------------------------------------------------
+
+               ENDC      ; YUVN_I
+

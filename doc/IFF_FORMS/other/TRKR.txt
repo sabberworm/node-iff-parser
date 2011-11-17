@@ -1,0 +1,610 @@
+TRacKeR style music module format proposal
+
+
+                              IFF FORM TRKR
+
+               Proposal for an IFF Tracker Song File Format
+                  (revision 1.1, as of January 1, 1993)
+
+     Designed and written by Darren Schebek, Full Tilt Entertainment
+                    Usenet: dschebek@outb.wimsey.bc.ca
+
+
+Since releasing my original draft, I have heard comments that an IFF tracker
+module file format would "balloon" the original tracker module out with a lot
+of header overhead.  This is not so.  In fact, this IFF TRKR file format
+eliminates a *great deal* of unnecessary and redundant file data inherent in
+typical module file formats (Noisetracker v2.0 being the worst I've seen so
+far).  Much of this space is used up in trailing note events at the end of
+patterns (eg, for modules that only use the first 48 notes in a pattern),
+duplication of patterns at the individual channel level (which Noisetracker
+v2.0 is notorious for), and unnecessarily padding out the play sequence table
+to a constant size, regardless of how many elements in the table are actually
+used.
+
+I have attempted to design this file format with the idea utmost in mind of
+allowing as many possible tracker formats to be upward-compatible with it.
+
+I have also decided to all but eliminate MIDI support, while still trying to
+allow for MIDI extensions to the format.  I do this partly in order to more
+accurately define the essence of a tracker module, but also because I feel
+unqualified to define an effective template for MIDI support.  However, MIDI
+extensions can always be added to the format later on.
+
+On the other hand, I have deliberately designed this draft of the IFF TRKR
+format to be much more powerful and flexible than a "standard" tracker module.
+It is always easier to trim down a design than to expand it. 
+
+One of the major changes I have made is to never assume a specific size for a
+given pattern of notes.  With this draft, patterns can be any length at all.
+There is a slight downside to this.  Whereas with the old Noisetracker format,
+all patterns were 64 notes in length (thus ensuring that new patterns for each
+audio channel started simultaneously), my file format loses this convenience.
+New patterns can start at any given time in any given audio channel without
+regard to any new patterns in any other audio channel.  As you may notice,
+this plays havoc with repeat commands and other commands that reference to
+specific points in the song.
+
+To solve this problem, I came up with the idea of adding a "marker" chunk to
+the file format.  Each bookmark defines a specific poosition in the song for
+each audio channel, recording (for each audio channel) pattern number and note
+offset into that pattern.  A player program can read in the song, read in the
+bookmark chunk(s), then pre-calculate appropriate pointers for each bookmark
+prior to playing the song.  Any commands that refer to these bookmarks (eg, a
+REPEAT command) will reference the bookmark by number in the same way that
+instruments are referenced.
+
+Another idea I came up with was a resolution to the timing problems
+inherent with PAL/NTSC songs (since no such timing information is stored in
+most tracker formats).  Timing in my format is now specified in "note
+events per minute".  With this method of timing, calculations for CIA timer
+frequency become trivial.  It is, however, still up to the player program
+to determine whether it is running on a PAL or NTSC Amiga and to compensate
+for the slight difference in CIA clock frequency (most players that use the
+CIA timers do not make this compensation).  So a 60Hz playback frequency
+now becomes 3600 note events per minute, and 50 Hz becomes 3000 note
+events/minute.  With this timing method, it is also possible to create a
+new song command that allows you to change the playback frequency (and I have
+done so.
+
+The longword that comprises a "note event" has also been modified drastically,
+and now contains a 13-bit operand field.  This allows for greater resolution
+for commands such as SAMPLE OFFSET.  It also facilitates the command for
+setting the number of note events per minute.
+
+I'll start with a sort of visual summary of the format, and then explain the
+various chunks and fields.
+
+
+------------------------------
+
+FORM size
+
+TRKR
+
+TRHD size
+   ubyte numsongs    Number of TRSG chunks in this FORM TRKR.
+   ubyte numinsts    Number of TINS chunks in this FORM TRKR.
+   uword numpatts    Number of PATT chunks in this FORM TRKR.
+
+[NAME]               Optional NAME chunk.
+[AUTH]               Optional AUTH chunk.
+[ANNO]               Optional ANNO chunk.
+[(c) ]               Optional (c)  chunk.
+
+TRSG size            Required chunk.  May be more than one TRSG chunk.
+
+   SGHD  size                 Required Song header chunk.
+      uword ticksperminute    Number of "ticks" (interrupts) per minute.
+      ubyte tickspernote      Number of "ticks" between successive note events.
+      ubyte iterations        Default number of iterations to play this song.
+      ubyte numchannels       Number of audio channels used by this song.
+      ubyte flags             Various flags for this song.
+      FIXED volume            Default global volume of this entire song.
+      char  songname[]        Title of this song.
+
+   CSEQ  size                 Required channel sequence chunk. One per channel.
+      uword pattarray[]       Word array of PATT #'s to play for channel #0.
+   CSEQ  size
+      uword pattarray[]       Word array of PATT #'s to play for channel #1.
+   .
+   .
+   .
+   CSEQ  size
+      uword pattarray[]       Array of PATT #'s to play for
+                               channel #(numchannels-1).
+
+   [MRKR]  size               Opt. marker chunk for recording repeat points.
+      ulong noteoffset        Offset in notes to marker's position in song.
+      ubyte register          Register number for referencing this marker.
+      char  markername[]      Name of the marker (for referencing by name).
+
+   [MRKR]  size               There is no limit to the number of MRKR chunks.
+      etc.
+
+TINS  size                    Required instrument chunk.
+
+   TIHD  size                 Required instrument header chunk.
+      ubyte register          Register number of this instrument
+      ubyte type              Type of instrument. 0 = 8SVX.
+      FIXED volume            Default relative volume of this instrument.
+      ubyte data1             MIDI channel # if type = 1.
+      ubyte data2             MIDI preset # if type = 1.
+      char  instname[]        Name of this instrument (or filename).
+
+   [FORM size 8SVX...]        Optional Instrument data for this instrument.
+
+TINS  size                    There can be up to 63 TINS chunks in the file.
+
+   TIHD  size ...
+   [FORM size 8SVX...]
+
+PATT  size                    Required pattern data chunk.
+   ulong nevents[]            Longword array of note events comprising pattern.
+
+PATT  size                    There can be up to 65536 PATT chunks in the FORM.
+   ulong nevents[]            PATT chunks are the last chunks in the FORM TRKR.
+.
+.
+.
+
+------------------------------
+
+Here now is an explanation of all chunks and their corresponding fields:
+
+==============================
+
+TRHD chunk - Required:
+
+The TRHD chunk contains information global to the file.  It contains the
+following fields...
+
+   ubyte numsongs
+
+   Specifies how many TRSG chunks (ie, songs) are contained within the FORM
+   TRKR.  There is no limit to the number of TRSG chunks that can exist,
+   although 256 of them should be a reasonable limit (or perhaps even less).
+   
+   ubyte numinsts
+
+   Specifies how many TINS chunks (ie, instrument definitions) exist within
+   the FORM TRKR.  There can be up to 63 TINS chunks in a FORM TRKR, since
+   the note event has enough bits allocated to support that many instruments.
+   Instruments are shared by all songs in the FORM TRKR.
+
+   uword numpatts
+
+   Specifies the number of PATT chunks (ie, patterns, or note event arrays)
+   that exist within the FORM TRKR.  Like instruments, all patterns are
+   shared by all songs in the FORM.  There can be up to 65536 PATT chunks in
+   a single FORM TRKR.
+
+==============================
+
+Optional "NAME", "AUTH", "ANNO", "(c) " chunks
+
+These standard chunks are optional, and should appear immediately after
+the TRHD chunk in the FORM TRKR.
+
+==============================
+
+TRSG chunk - Required
+
+The TRSG chunk defines the parameters and patterns that comprise a single
+song.  There must be at least one TRSG chunk in the FORM TRKR, appearing
+immediately after the TRHD chunk and any of the optional chunks mentioned
+above (ie, "NAME", "AUTH", "ANNO", "(c) ").
+
+This chunk is made up of several sub-chunks:
+
+   SGHD chunk - Required song header chunk.
+
+   This chunk contains parameters necessary for playing this particular song.
+   The fields are as follows:
+
+      uword ticksperminute
+
+      This field specifies the interrupt frequency of the player in "ticks"
+      per minute, where a "tick" refers to the occurrence of the player
+      interrupt (it is naturally assumed that the player interrupt will be
+      running as a CIA timer interrupt, and not a vertical blank interrupt).
+      This parameter, then, specifies the CIA interrupt frequency.  For
+      example, a value of 3600 ticks/minute (60Hz interrupt frequency), would
+      result in a CIA timer value of 42954540/3600 = 11932 (approx.) for NTSC
+      Amiga platforms and 42562740/3600 = 11823 for PAL Amiga platforms.
+      Defining interrupt frequency in this way eliminates timing differences
+      between NTSC- and PAL-composed songs.  The range for this parameter is
+      700-6000 inclusive.  Slower tempos than 700 can be achieved through
+      subdividing the interrupt (see tickspernote below).
+
+      ubyte tickspernote
+
+      This field is an interrupt subdivider, and corresponds directly to the
+      SET TEMPO command on Noisetracker and other formats.  This specifies
+      the number of "ticks" (interrupts) that must elapse after procesing a
+      note event before processing the next note event.
+
+      ubyte iterations
+
+      Specifies the default number of iterations to play thge song for.  A
+      value of 0 means to repeat the song endlessly.  This value can be
+      overridden by commands embedded in the note events (eg, a REPEAT
+      command at the end of the song with a repeat count of 0 (loop forever)
+      may cause the song to loop forever even though the iterations field
+      here says to play the song only once.
+
+      ubyte numchannels
+
+      This field indicates the number of audio channels this song uses.  It
+      must have a value of 1 or greater.  The value here also specifies the
+      number of CSEQ chunks (channel sequence arrays) that are defined in
+      this TRSG chunk.
+
+      ubyte flags
+
+      This flags field currently has no defined bits, but could have flags
+      indicating such things as fading the song out on the last iteration of
+      play (via reducing the global volume of the song), among other things.
+
+      FIXED volume
+
+      Specifies the global volume at which the piece is to be played.
+      Implementing this may require appropriately re-scaling the default
+      volumes of the intruments.  This means that it is rather important to
+      keep track of the original instrument default volumes in their
+      unit-value forms (ie, FIXED format, 0..1).
+
+      char songname[]
+
+      This is the title of this song.
+
+
+   CSEQ chunk - Required
+
+   A CSEQ chunk is simply an array of pattern numbers to play for a given
+   audio channel. The first CSEQ chunk in a TRSG chunk corresponds to audio
+   channel #0, the next one corresponds to channel #1, etc.  The number of
+   CSEQ chunks in the TRSG chunk must match the number specified by the
+   "numchannels" parameter in the SGHD (song header) chunk.  These pattern
+   number arrays should be ordered such that the most important CSEQ's appear
+   first.  This is because future Amiga platforms will support more than the
+   current 4 audio channels.  FORM TRKR songs that take advantage of more
+   channels will still be able to be played on an older 4-channel platform,
+   with the extra CSEQ chunks being ignored.
+
+   The CSEQ chunk's array consists of any number of word elements. Each
+   element refers to a pattern array (see PATT chunk below) to play for a
+   given audio channel.  Pattern numbers are derived from the order of PATT
+   chunks in the FORM TRKR (ie, the first PATT chunk in the file is pattern
+   #0, then next PATT chunk is pattern #1, etc).
+
+   MRKR chunk - Optional
+
+   The MRKR (ie, marker) chunk records a specific global position in the song.
+   It is used by any embedded song commands that cause a change in the
+   position of the song (eg, the REPEAT command).  These position-control
+   commands specify the new position in the song by referring to one of these
+   markers.  Since patterns can be any length at all, there is no gaurantee
+   that new patterns will start in all audio channels at the same time.
+   Rather, new patterns can start in any audio channel at any time.
+   Therefore, the MRKR chunks exist so that, prior to playing the song, a
+   player program can process each MRKR chunk and precalculate positions in
+   the song (since some markers may result in a position in the middle of an
+   arbitrary pattern).
+
+   The fields of the MRKR chunk are as follows:
+
+      ulong noteoffset
+
+      This specifies where in the song the marker lies as an offset in note
+      events from the beginning of the song.  Calculating the exact position
+      of a marker involves examining (for each CSEQ chunk in the song) all
+      pattern numbers and the length in notes of those patterns.  It is then
+      necessary to calculate an offset into the corresponding CSEQ array, as
+      well as an offset into the pattern to the precise position of the
+      marker.  This must be done for each audio channel (each CSEQ chunk) that
+      will be used prior to playing a song.  This is a rather tedious thing to
+      be doing on-the-fly, so pre-calculating these offsets is much more
+      desirable.
+
+      ubyte register
+
+      This is the register number of the marker.  It is by this number that
+      all embedded song commands reference a given marker.  Each marker in a
+      TRSG chunk must have a unique register number, but they can be re-used
+      in successive TRSG chunks in the FORM TRKR if so desired.
+
+      char  markername[]
+
+      This is the name of the marker.  Some music editors may wish to allow
+      users to reference markers by name rather than number (which may get
+      somewhat confusing with multiple songs in memory).  It can be left out
+      if desired, since the name is only meaningful to an editor and not used
+      by a simple player program (a player program would reference markers by
+      their register number).
+
+==============================
+
+TINS chunk - Required
+
+The TINS chunk (Tracker INStrument) defines the nature and parameters of an
+instrument, and may optionally contain the actual instrument data (eg, it may
+optionally include a FORM 8SVX).
+
+If the actual instrument data is not contained within the TINS chunk, then
+the IFF loader program will have to go to disk (or other medium) to acquire
+the instrument data.  I'm not sure if it's considered good form to embed a
+FORM 8SVX within a TINS chunk.  I suspect it's not, but I've done it anyway.
+
+The TINS chunk contains the following required TIHD (Tracker Instrument
+HeaDer) chunk:
+
+   TIHD chunk - Required
+
+   This header chunk desribes the parameters of an instrument.  It contains
+   the following fields:
+
+      ubyte register
+
+      Contains the register number of this instrument.  Instruments are
+      referenced from within the song by this number, and so each
+      instrument's register number must be unique, and in the range 1..63
+      inclusive.
+
+      ubyte type
+
+      This specifies the type of the instrument (ie, the nature of the
+      instrument's data).  A type of 0 means that the instrument is an IFF
+      FORM 8SVX sample.  A type of 1 means that the instrument is a MIDI
+      instrument.  No extra values for the type field have been defined thus
+      far.  A type not understood by a player should cause the player to
+      either ignore all references to that instrument, or the player could
+      have default instruments prepared to replace those that are defined but
+      not understood.
+
+      FIXED volume
+
+      This is the default volume of this instrument in FIXED format (ie, a
+      "unit-value" fixed-point integer in the range 0..1).  It should be
+      scaled appropriately based on the global volume of any song that uses
+      it (eg, if global volume is 48, then this FIXED value represents a value
+      from 0..48, where unity is represented by 48).
+
+      ubyte data1
+
+      If the "type" field is 1, then this field contains the MIDI channel #
+      to be used for this intrument.
+
+      ubyte data2
+
+      If "type" = 1, then this field contains the MIDI preset # to be used
+      for this instrument.
+
+      char  instname[]
+
+      This is the name of the instrument.  If the instrument data itself (eg,
+      a FORM 8SVX) is not included in the TINS chunk, then this name field
+      can contain a filename to be used to search for the instrument data
+      elsewhere.  Editors and player programs should have the facility to
+      search various user-defined paths for such instruments.  No path should
+      *ever* be specified in the instname[] field. Only the filename of the
+      instrument data.
+
+   
+   Optional instrument data chunk (eg, IFF 8SVX)
+
+   Optionally, the actual instrument data chunk can appear here as part of the
+   TINS chunk.  The presence of instrument data can be determined by examining
+   the number of bytes in the TINS chunk less the size of the TIHD chunk
+   inside it (ie, the entire TIHD chunk, including ID field and size field).
+
+My goals in creating this new IFF format have been:
+
+   - To resolve timing conflicts between PAL and NTSC Amiga systems by
+     standardizing tempo and timing.
+
+   - To redesign the note event format to allow greater flexibility and
+     expandability for future enhancements and extensions to the format.
+
+   - To provide a specification for support of IFF 8SVX samples that contain
+     data for up to three octaves.
+
+   - And finally, to try to combine the best features of many of the popular
+     module formats so that as many different formats as possible can be
+     converted to the new IFF tracker format.
+
+
+                       NOTE EVENT DESIGN AND LAYOUT
+                       ----------------------------
+
+   I have redesigned the structure of a note event to allow for greater
+flexibility and expandability.  The note event no longer contains
+Amiga-specific period values to represent note pitch, but has been changed to
+a note number in the range 0..127.  This is to facilitate support for MIDI
+instruments in the future.  Standard tracker module period values map into
+this range as 1..36 inclusive (a note number of 0 means no note is to be
+played).  Players that support five-octave 8SVX instruments can extend the
+range of notes to 1..60 (five octaves).
+
+   The note event allows specification of up to 63 different commands, with
+as many as 12 bits of operand available for each command.  Also, up to 63
+instruments can be specified.
+
+   The note event is a longword value.  Its bits are allocated as follows:
+
+                           High word of note event:
+              +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+      Bit #31 |n6|n5|n4|n3|n2|n1|n0|i5|i4|i3|i2|i1|i0|c5|c4|c3| Bit #16
+              +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+
+                           Low word of note event:
+              +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+      Bit #15 |c2|c1|c0|oC|oB|oA|o9|o8|o7|o6|o5|o4|o3|o2|o1|o0| Bit #0
+              +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+
+Bit descriptions of the note event:
+
+
+Bits n0-n7: Contains the note number to play, which is a value from 0..127
+            inclusive.  For simple, one octave 8SVX instruments, only values
+            from 1..36 are used (1..60 for 5-octave 8SVX insts, and the entire
+            range can be used for future MIDI support.  To determine the
+            octave at which to play the note (0, 1, or 2), simply subtract 1
+            and divide the result by 12.  The remainder of this division gives
+            you the note to play relative to this octave.  If the note number
+            field is 0, then no note is to be played.
+
+            Notes are allocated as follows (for 1-octave 8SVX):
+
+                                 Amiga
+            Octave    Note    Period value    
+
+               0       C          856         
+               0       C#         808         
+               0       D          762         
+               0       D#         720         
+               0       E          678         
+               0       F          640         
+               0       F#         604         
+               0       G          570         
+               0       G#         538         
+               0       A          508         
+               0       A#         480         
+               0       B          453         
+               1       C          428         
+               1       C#         404         
+               1       D          381         
+               1       D#         360         
+               1       E          339         
+               1       F          320         
+               1       F#         302         
+               1       G          285         
+               1       G#         269         
+               1       A          254         
+               1       A#         240         
+               1       B          226         
+               2       C          214         
+               2       C#         202         
+               2       D          190         
+               2       D#         180         
+               2       E          170         
+               2       F          160         
+               2       F#         151         
+               2       G          143         
+               2       G#         135         
+               2       A          127         
+               2       A#         120         
+               2       B          113         
+
+Bits i0-i5: Specifies a new instrument to use.  If this value is 0, then no new
+            instrument is to be selected.  Otherwise, it is an instrument
+            register number from 1..63 inclusive (instrument register numbers
+            start at 1, not 0) that specifies a new instrument to be selected.
+            Note that the new instrument is not to be actually played at this
+            time unless a note number has been specified, or if an included
+            command says otherwise.
+
+Bits c0-c5: Specifies a command to be executed.  A value of 0 means no command
+            is to be executed.  A value of 1..63 specifies a command to be
+            executed (commands themselves are discussed further on).
+
+Bits o0-oC: This is the operand field used by the various commands supported
+            by FORM "TRKR".  Although this is a thirteen-bit field, some
+            commands may not use the entire twelve bits for their operand.
+            Also, other commands may partition the field if they require more
+            than a single input operand.  Typically, signed operands use only
+            the lowest eight bits of the operand field, since it's a bit (pun
+            not intended) of a pain to have to sign-extend a thirteen-bit
+            field.
+
+
+                 Command Specification for IFF FORM "TRKR"
+                 -----------------------------------------
+
+   As a result of certain features of this file format, certain commands from
+tracker-style module file formats have become obsolete.  For example, the
+"Pattern Break" command is no longer needed, as patterns can be any length at
+all.  "Pattern Break" was required in tracker-style formats because patterns
+were always 64 note events long.  If composing a song in 3/4 time (typically
+using only the first 48 notes in a pattern) then the "Pattern Break" was
+required to skip past the remaining unused note events in the 64-note pattern.
+
+   In order to fully describe the function of each command, it is necessary to
+break down the commands into categories.
+
+   First of all, a "tick" refers to the occurrence of the player interrupt.
+The player interrupt occurs on every tick, but it only processes the next note
+event in the current pattern on every nth tick (where n is determined by the
+current "ticks per note" setting).
+
+   The "tick" that occurs in which a new note event is fetched shall
+henceforth be referred to as the "note tick".
+
+   Some commands are simply processed once on the note tick (ie, as soon as
+they are fetched).  A good example would be the "Set Channel Volume" command,
+which modifies the current volume of an audio channel immediately.  The
+command is then finished.
+
+   Other commands stay active for longer periods of time.  For example, the
+"Arpeggio" command must play three notes cyclicly in an audio channel.  It
+starts playing these notes on the note tick that the command was found, and
+plays a different note (of the three notes) on *every* tick after that, until
+the next note tick.
+
+   I will do my best to explain how each command works in detail in this
+section, including possible suggestions for implementation in a player
+program.
+
+   First, a summary of the commands with a brief description of each, along
+with each command's number:
+
+                               Command Summary
+
+Cmd #   Name                    Description
+
+  0   No Command                No command.
+  1   Arpeggio                  Play a three-note arpeggio.
+  2   Pitch Bend                Raise/lower current note pitch on every tick.
+  3   One-Time Pitch Bend       Raise/lower pitch by specified amount once only.
+  4   Portamento                Slide from cur. pitch up/down to specified note.
+  5   Vibrato                   Apply vibrato on current note.
+  6   Portamento+Volume Bend    Slide from cur. note to new note with volume bend.
+  7   Vibrato+Volume Bend       Apply vibrato to current note with volume bend.
+  8   Tremolo                   Apply tremolo to current note.
+  9   Set Sample Offset         Set data start offset for current instrument.
+ 10   Volume Bend               Bend current channel volume up or down.
+ 11   One-Time Volume Bend Up   Increase volume by specified amount.
+ 12   One-Time Volume Bend Down Decrease volume by specified amount.
+ 13   Set Volume                Set this channel's volume to a specified value.
+ 14   Set Filter                Turn low-pass filter on/off.
+ 15   Set Ticks Per Note        Set new ticks/note (aka "Tempo").
+ 16   Set Ticks Per Minute      Set ticks/minute (range 700-6000, 3000 = 50Hz).
+ 17   Restart Note              Restart note n ticks from now.
+ 18   Delay Note                Delay playing this note for n ticks.
+ 19   Cut-off Note              Cut off current note n ticks from now.
+ 20   Pause                     Suspend play at this position for n note events.
+ 21   Repeat                    Repeat from specified marker n times.
+ 22   Glissando Control         Turn Glissando on/off for this channel.
+ 23   Set Vibrato Waveform      Select vibrato waveform type.
+ 24   Set Tremolo Waveform      Select tremolo waveform type.
+
+
+    I must thank you for taking the time to review what I have come up with so
+far.  I would greatly appreciate your opinion on the various design issues and
+solutions I have raised throughout this document.
+
+    This is the IFF FORM "TRKR" documentation as it stands at the moment.  The
+next draft of this proposal will include detailed specs on each note-event
+command, as well as a section concerning memory representation of an IFF TRKR
+file.
+
+
+   Darren Schebek
+   Full Tilt Entertainment
+
+   5620 Sherwood Blvd.
+   Delta, B.C.
+   CANADA
+   V4L-2C5
+
+   usenet: dschebek@outb.wimsey.bc.ca

@@ -11,5 +11,8 @@
     "node": "~0.6.1"
   },
   "dependencies": {},
-  "devDependencies": {}
+  "devDependencies": {},
+	"optionalDependencies": {
+		"canvas": "0.8.1"
+	}
 }

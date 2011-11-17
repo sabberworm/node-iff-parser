@@ -1,0 +1,340 @@
+ANIM brush format
+
+              Dpaint Anim Brush IFF Format
+
+	From a description by the author of DPaint,
+
+                      Dan Silva
+                    Electronic Arts
+
+
+
+The "Anim Brushes" of DPaint III are saved on disk in the IFF "ANIM" 
+format.  Basically, an ANIM Form consists of an initial ILBM 
+which is the first frame of the animation, and any number of 
+subsequent "ILBM"S (which aren't really ILBM's) each of which 
+contains an ANHD animation header chunk and a DLTA chunk  
+comprised of the encoded difference between a frame and a previous one.
+
+
+
+To use ANIM terminology (for a description of the ANIM format, 
+see the IFF Anim Spec, by Gary Bonham). Anim Brushes use a "type 
+5" encoding, which is a vertical, byte-oriented delta encoding 
+(based on Jim Kent's RIFF).  The deltas have an interleave of 1, 
+meaning deltas are computed between adjacent frames, rather than 
+between frames 2 apart, which is the usual ANIM custom for the 
+purpose of fast hardware page-flipping.  Also, the deltas use 
+Exclusive Or to allow reversable play.
+
+
+
+However, to my knowledge, all the existing Anim players in the Amiga
+world will only play type 5 "Anim"s which have an interleave of 0 (i.e. 2)
+and which use a Store operation rather than Exclusive Or, so no existing
+programs will read Anim Brushes anyway.  The job of modifying existing 
+Anim readers to read Anim Brushes should be simplified, however.
+
+
+Here is an outline of the structure of the IFF Form output by 
+DPaint III as an "Anim Brush". The IFF Reader should of course be 
+flexible enough to tolerate variation in what chunks actually 
+appear in the initial ILBM.
+
+
+
+                  FORM ANIM
+
+
+
+                      . FORM ILBM         first frame
+
+                      . . BMHD        
+
+                      . . CMAP
+
+                      . . DPPS
+
+                      . . GRAB
+
+                      . . CRNG
+
+                      . . CRNG
+
+                      . . CRNG
+
+                      . . CRNG
+
+                      . . CRNG
+
+                      . . CRNG
+
+                      . . DPAN     my own little chunk.
+
+                      . . CAMG
+
+                      . . BODY
+
+
+
+                      . FORM ILBM         frame 2
+
+                      . . ANHD                animation header chunk
+
+                      . . DLTA                delta mode data
+
+
+
+                      . FORM ILBM         frame 3
+
+                      . . ANHD                animation header chunk
+
+                      . . DLTA                delta mode data
+
+
+
+                      . FORM ILBM         frame 4
+
+                      . . ANHD                animation header chunk
+
+                      . . DLTA                delta mode data
+
+
+
+       ...
+
+
+
+                   . FORM ILBM         frame N
+
+                      . . ANHD                animation header chunk
+
+                      . . DLTA                delta mode data
+
+
+
+
+
+--- Here is the format of the DPAN chunk:
+
+
+
+typedef struct {
+
+ UWORD version;   /* current version=4 */
+
+ UWORD nframes;   /* number of frames in the animation.*/
+
+ ULONG flags;   /* Not used */
+
+ } DPAnimChunk;
+
+
+
+  The version number was necessary during development. At present
+all I look at is "nframes".
+
+
+
+
+
+
+
+--- Here is the ANHD chunk format:
+
+
+
+
+
+typedef struct {
+
+ UBYTE operation;  /* =0  set directly
+
+       =1  XOR ILBM mode,
+
+       =2 Long Delta mode,
+
+       =3 Short Delta mode
+
+       =4 Generalize short/long Delta mode,
+
+       =5 Byte Vertical Delta (riff)
+
+       =74 (Eric Grahams compression mode)
+
+   */
+
+ UBYTE mask;      /* XOR ILBM only: plane mask where data is*/
+
+ UWORD w,h;  
+
+ WORD x,y;
+
+ ULONG abstime;
+
+ ULONG reltime;
+
+ UBYTE interleave; /* 0 defaults to 2 */
+
+ UBYTE pad0;   /* not used */
+
+ ULONG bits;   /* meaning of bits:
+
+     bit#    =0         =1
+
+    0  short data      long data
+
+    1  store         XOR
+
+    2  separate info       one info for
+
+      for each plane     for all planes
+
+    3  not RLC    RLC (run length encoded)
+
+    4  horizontal   vertical
+
+    5  short info offsets long info offsets
+
+   -------------------------*/
+
+ UBYTE pad[16];
+
+ } AnimHdr;
+
+
+
+
+
+
+
+for Anim Brushes, I set:
+
+
+
+ animHdr.operation = 5;  /* RIFF encoding */
+
+ animHdr.interleave = 1;
+
+ animHdr.w = curAnimBr.bmob.pict.box.w; 
+
+ animHdr.h = curAnimBr.bmob.pict.box.h; 
+
+ animHdr.reltime = 1;
+
+ animHdr.abstime = 0;
+
+ animHdr.bits = 4; /* indicating XOR */
+
+
+
+
+
+-- everything else is set to 0.
+
+
+
+
+
+
+
+NOTE: the "bits" field was actually intended ( by the original 
+creator of the ANIM format, Gary Bonham of SPARTA, Inc.) for use 
+with only with compression method 4. I am using bit 2 of the bits 
+field to indicate the Exclusive OR operation in the context of 
+method 5, which seems like a reasonable generalization. 
+
+
+
+
+
+For an Anim Brush with 10 frames, there will be an initial frame 
+followed by 10 Delta's (i.e ILBMS containing ANHD and DLTA 
+chunks).  Applying the first Delta to the initial frame generates 
+the second frame, applying the second Delta to the second frame 
+generates the third frame, etc.  Applying the last Delta thus 
+brings back the first frame.  
+
+
+
+
+
+The DLTA chunk begins with 16 LONG plane offets, of which DPaint 
+only uses the first 6 (at most).  These plane offsets are either 
+the offset (in bytes ) from the beginning of the DLTA chunk to 
+the data for the corresponding plane, or Zero, if there was no 
+change in that plane.  Thus the first plane offset is either 0 or 
+64.
+
+
+
+(The following description of the method is based on Gary Bonham's 
+rewording of Jim Kent's RIFF documentation.)
+
+
+
+
+
+  Compression/decompression is performed on a plane-by-plane 
+  basis.  
+
+
+
+  Each byte-column of the bitplane is compressed separately.  A 
+  320x200 bitplane would have 40 columns of 200 bytes each.  In 
+  general, the bitplanes are always an even number of bytes wide, 
+  so for instance a 17x20 bitplane would have 4 columns of 20 
+  bytes each.
+
+
+
+  Each column starts with an op-count followed by a number of 
+  ops.  If the op-count is zero, that's ok, it just means there's 
+  no change in this column from the last frame.  The ops are of 
+  three kinds, and followed by a varying amount of data depending 
+  on which kind:
+
+
+
+     1. SKIP - this is a byte with the hi bit clear that   says 
+        how many rows to move the "dest" pointer forward, ie to 
+        skip. It is non-zero.
+
+
+
+     2. DUMP - this is a byte with the hi bit set.  The hi bit is 
+        masked off and the remainder is a count of the number of 
+        bytes of data to XOR directly.  It is followed by the 
+        bytes to copy.
+
+
+
+     3. RUN - this is a 0 byte followed by a count byte, followed 
+        by a byte value to repeat "count" times, XOR'ing it into 
+        the destination.
+
+
+
+
+
+  Bear in mind that the data is compressed vertically rather than 
+  horizontally, so to get to the next byte in the destination  you 
+  add the number of bytes per row instead of one.
+
+
+
+The Format of DLTA chunks is as described in section 2.2.2 
+of the Anim Spec. The encoding for type 5 is described in section 
+2.2.3 of the Anim Spec.  
+
+
+
+
+
+
+
+
+
+
+
+

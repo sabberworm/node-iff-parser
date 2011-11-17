@@ -1,0 +1,6 @@
+Always ignore this chunk.
+
+This chunk was designed to let garbage data in an IFF file be quickly marked
+as such.  Instead of actually having to remove the garbage chunk, just rename
+it "JUNK".  All IFF readers should ignore "JUNK" chunks.  Thanks to David
+Ellis for this idea.  Registered 91.11.08.

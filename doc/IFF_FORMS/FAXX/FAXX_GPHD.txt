@@ -1,0 +1,81 @@
+Additional header info for FAXX FORMs
+
+/************************************************************************
+*  			FAX_IFF.H					*
+*									*
+* 		Defined by R Carde - GPSoftware				*
+*			21 Aloomba Rd Ashgrove Auastralia 4060		*
+*			UseNet cbmvax!cbmaus!vogue!richard		*
+*									*
+* 		Issue  1	12.12.91				*
+*		Issue  2	01.02.92				*
+*									*
+************************************************************************/
+
+
+/************************************************************************
+*	define as FAX form for any Group 3 fax 				*
+************************************************************************/
+
+#define ID_GPHD     MakeID('G','P','H','D')	/* our CHUNK */
+
+#define	VRES_STD	0		/* standard mode 98 DPI 	*/
+#define	VRES_FINE	1		/* fine res 198 DPI 		*/
+
+#define	COMP_NONE	255		/* no compression- binary file 	*/
+#define	COMP_1D		0		/* 1-D modified HUFFMAN 	*/
+#define	COMP_2D		1		/* 2-D modified REED 		*/
+#define	COMP_2DU	2		/* 2-D uncompressed REED 	*/
+#define	COMP_2DM	3		/* 2-D modified modified REED 	*/
+
+					/* VR-std scan time VR-fine	*/
+#define	ST_0_0MS	0		/* 0ms 		  0ms 		*/
+#define	ST_5_5MS	1		/* 5ms 		  5ms		*/
+#define	ST_10_5MS	2		/* 10ms 	  5ms		*/
+#define	ST_10_10MS	3		/* 10ms 	  10ms		*/
+#define	ST_20_10MS	4		/* 20ms 	  10ms		*/
+#define	ST_20_20MS	5		/* 20ms 	  20ms		*/
+#define	ST_40_20MS	6		/* 40ms 	  20ms		*/
+#define	ST_40_40MS	7		/* 40ms 	  40ms		*/
+
+#define	PW_1728		0		/* 1728 pels in 215 mm 		*/
+#define	PW_2048		1		/* 2048 pels in 255 mm 		*/
+#define	PW_2432		2		/* 2432 pels in 303 mm 		*/
+#define	PW_1216		3		/* 1216 pels in 151 mm 		*/
+#define	PW_864		4		/* 864 pels in 107 mm 		*/
+
+#define	PH_UNLIM	0		/* unlimited page length 	*/
+#define	PH_A4		1		/* A4 PAGE 297 mm 		*/
+#define	PH_B4		2		/* B4 PAGE 364 mm 		*/
+
+#define	BR_2400		0		/* 2400 bits per second		*/
+#define	BR_4800		1
+#define	BR_7200		2
+#define	BR_9600		3
+#define	BR_12000	4
+#define	BR_14400	5
+
+#define	ECM_NONE	0		/* Error Correction Disabled	*/
+#define	ECM_STD		1		/* Error Correction Enabled	*/ 
+
+#define	BFT_NONE	0		/* Binary Transfer Disabled	*/
+#define	BFT_STD		1		/* Binary Transfer Enabled	*/ 
+
+struct  GPHD {
+	UWORD	gp_Width;		/* width in pels 		*/
+	UWORD	gp_Length;		/* length / height in pels	*/
+	UWORD	gp_Page;		/* page number 			*/
+	UBYTE	gp_ID[22];		/* id string 20 ch NULL term	*/
+
+	UBYTE	gp_VRes;		/* Vertical Res dpi		*/
+	UBYTE	gp_BitRate;		/* connection bit rate		*/
+	UBYTE	gp_PageWidth;		/* page width 			*/
+	UBYTE	gp_PageLength;		/* page length/height 		*/
+	UBYTE	gp_Compression;		/* compression method 		*/
+	UBYTE	gp_ErrorCorrection;	/* ECM mode			*/
+	UBYTE	gp_BinaryFileTransfer;	/* binary transfer mode		*/
+	UBYTE	gp_ScanTime;		/* Scan Time ms			*/
+
+	struct	DateStamp gp_Date;	/* date sent/received 		*/
+	UBYTE	gp_Pad[10];
+};

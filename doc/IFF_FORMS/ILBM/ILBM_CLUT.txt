@@ -1,0 +1,107 @@
+Color Lookup Table chunk
+
+
+amiga.dev/iff message 1527
+----------
+TITLE: CLUT IFF chunk proposal
+
+"CLUT" IFF 8-Bit Color Look Up Table
+
+Date:	July 2, 1989
+From:	Justin V. McCormick
+Status:	Public Proposal
+Supporting Software:  FG 2.0 by Justin V. McCormick for PP&S
+
+
+Introduction:
+
+  This memo describes the IFF supplement for the new chunk "CLUT".
+
+Description:
+
+  A CLUT (Color Look Up Table) is a special purpose data module
+containing table with 256 8-bit entries.  Entries in this table
+can be used directly as a translation for one 8-bit value to
+another.
+
+Purpose:
+
+  To store 8-bit data look up tables in a simple format for
+later retrieval.  These tables are used to translate or bias
+8-bit intensity, contrast, saturation, hue, color registers, or
+other similar data in a reproducable manner.
+
+Specifications:
+
+/* Here is the IFF chunk ID macro for a CLUT chunk */
+#define ID_CLUT MakeID('C','L','U','T')
+
+/*
+ * Defines for different flavors of 8-bit CLUTs.
+ */
+#define CLUT_MONO	0L	/* A Monochrome, contrast or intensity LUT */
+#define CLUT_RED	1L	/* A LUT for reds 		*/
+#define CLUT_GREEN	2L	/* A LUT for greens 		*/
+#define CLUT_BLUE	3L	/* A LUT for blues 		*/
+#define CLUT_HUE	4L	/* A LUT for hues 		*/
+#define CLUT_SAT	5L	/* A LUT for saturations 	*/
+#define CLUT_UNUSED6	6L	/* How about a Signed Data flag */
+#define CLUT_UNUSED7	7L	/* Or an Assumed Negative flag	*/
+
+/* All types > 7 are reserved until formally claimed */
+#define CLUT_RESERVED_BITS 0xfffffff8L
+
+/* The struct for Color Look-Up-Tables of all types */
+typedef struct
+{
+  ULONG type;		/* See above type defines */
+  ULONG res0;		/* RESERVED FOR FUTURE EXPANSION */
+  UBYTE lut[256];	/* The 256 byte look up table */
+} ColorLUT;
+
+
+CLUT Example:
+
+  Normally, the CLUT chunk will appear after the BMHD of an FORM
+ILBM before the BODY chunk, in the same "section" as CMAPs are
+normally found.  However, a FORM may contain only CLUTs with no
+other supporting information.
+
+  As a general guideline, it is desirable to group all CLUTs
+together in a form without other chunk types between them.
+If you were using CLUTs to store RGB intensity corrections, you
+would write three CLUTs in a row, R, G, then B.
+
+  Here is a box diagram for a 320x200x8 image stored as an IFF ILBM
+with a single CLUT chunk for intensity mapping:
+
+      	+-----------------------------------+   
+      	|'FORM'		64284		    |     FORM 64284 ILBM
+      	+-----------------------------------+   
+      	|'ILBM'				    |     
+      	+-----------------------------------+   
+      	| +-------------------------------+ |   
+      	| | 'BMHD'	20		  | |     .BMHD 20
+      	| | 320, 200, 0, 0, 8, 0, 0, ...  | |   
+      	| | ------------------------------+ |   
+      	| | 'CLUT'	264	          | |     .CLUT 264
+      	| | 0, 0, 0; 32, 0, 0; 64,0,0; .. | |   
+      	| +-------------------------------+ |   
+      	| +-------------------------------+ |   
+      	| |'BODY'		64000     | |     .BODY 64000
+      	| |0, 0, 0, ...			  | |   
+      	| +-------------------------------+ |   
+      	+-----------------------------------+   
+
+
+Design Notes:
+-------------
+
+  I have deliberately kept this chunk simple (KISS) to
+facilitate implementation.  In particular, no provision is made
+for expansion to 16-bit or 32-bit tables.  My reasoning is that
+a 16-bit table can have 64K entries, and thus would benefit from
+data compression.  My suggestion would be to propose another
+chunk or FORM type better suited for large tables rather than
+small ones like CLUT.
+

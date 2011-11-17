@@ -1,0 +1,1256 @@
+Proposal for a stadard 3D object format
+
+                    FORM OB3D (revision 1)
+                   ------------------------
+                              by
+                       Roberto Speranza
+
+
+   This is a modified specification of the OB3D FORM, proposed a few
+weeks ago.   Much concern was raised about the earlier FORM's inflexibility.
+I have tried to address that here by adding flexibility to the majority of
+the chunks by making them tag-based.
+	This will define what I consider to be the bare minimum I require of
+this FORM for my own program plus anything I can think of to accomodate other
+programs I am aware of as well suggestions posed by others.  Additional chunks
+or additional tags for chunks currently defined in this proposal will have
+to be discussed as soon as possible after this posting.  I want this minimum
+definition approved so that I can begin the task of re-writing my reader/writer
+software to handle all of this.  To add the flexibility requested, the reader
+software has to increase in complexity somewhat.   Here are a few
+highlights of the revised FORM:
+
+- almost all chunks are tag-based
+- SPLN chunk updated to handle NURBs (non-uniform rational B-Splines)
+- SURF and NURB chunk merged with a new chunk, PRIM, which will contain
+  ALL primitives; polygons, bicubic surfaces, NURB surfaces, and other
+  primitives such as spheres, cones, etc.
+- precision concerns have been eliminated by the addition of variables
+  to the PREF chunk that are designed to inform the reader software of
+  the precision of floats used in the file
+- the addition of a MACR chunk for stroing ASCII macros such as AREXX
+  macros or scripts
+
+
+   The following is a list of chunks and their descriptions followed by
+a detailed description of all the tags currently defined.
+
+-----------------------------------------------------------------------------
+FORM
+
+
+struct FORMstruct
+{
+   ULONG ID;
+   ULONG Size;
+}
+
+
+OB3D
+
+
+PREF (optional)
+
+struct PREFstruct
+{
+   ULONG Id;
+   ULONG Size;
+   UWORD preflines;
+   ULONG prefsize;
+   UBTE Prefs[prefsize];
+   UBTE pad;  /* to make chunk even length, if necessary */
+}
+
+The character array Prefs consists of lines of ASCII text terminated by
+newlines (\n).   The NumLines field tells you how many lines in case you want
+to read it in a line at a time.
+
+Each line takes the following form:
+
+variable=value(s)   (more than one value will be separated by spaces)
+
+This type of preferences layout was selected for generality and easy
+expansion.  This will also allow for program preferences to be stored in IFF form.
+If this chunk is present, it will contain preferences for the reader code
+as well as any program preferences.  Here are some variables to start us off:
+
+
+   Variable       Suggested Value(s)
+   --------       ------------------
+
+   TIMEUNITS      FRAMES or SECONDS depending on application
+
+   FRAMERATE      60
+
+   TIMEFLOAT      IEEESINGLE   (32 bit)
+                  CHARSTRING   ( length (UWORD) + length characters )
+                               (not null terminated)
+                  ULONGINT     (32 bit)
+
+   TIMEBASE       1            (number to divide TIMEFLOAT by to get value in TIMEUNITS)
+                               (primarily for specifying how to convert ULONGINTS to
+                                a floating point quantity if desired)
+
+   STARTFRAME     1 (or whatever)
+
+   ATTFLOAT       IEEESINGLE   (32 bit)
+                  CHARSTRING   ( length (UWORD) + length characters )
+                               (not null terminated)
+                  UBTE        ( 8 bit)
+                  UWORDINT     (16 bit)
+                  ULONGINT     (32 bit)
+
+   ATTBASE        1            (number to divide ATTFLOAT by to get value in TIMEUNITS)
+                               (primarily for specifying how to convert non-floating
+                                point quantities to a floating point quantity if desired)
+
+   FLOAT          IEEESINGLE   (32 bit)
+                  CHARSTRING   ( length (UWORD) + length characters )
+                               (not null terminated)
+
+   COORFLOAT      IEEESINGLE   (32 bit)
+                  IEEEDOUBLE   (64 bit)
+                  IEEEEXTENDED (96 bit)
+                     This is supported by the
+                     MC6888x FPUs. Manx's m.lib
+                     supports this format as a
+                     long double.
+                  CHARSTRING   ( length (UWORD) + length characters )
+                               (not null terminated)
+
+   ANGLEUNITS     DEGREES
+                  RADIANS
+
+   DISTANCEUNITS  MILLIMETRES
+                  CENTIMETRES
+                  METRES
+                  KILOMETRES
+                  INCHES
+                  FEET
+                  ARDS
+                  MILES
+
+-----------------------------------------------------------------------------
+MACR (optional)
+
+struct MACRstruct
+{
+   ULONG Id;
+   ULONG Size;
+   ULONG NumMacros;
+   struct
+   {
+      UWORD namelen;       /* length of name */
+      UBTE name[namelen]; /* name of macro  */
+      ULONG macsize;
+      UWORD maclines;
+      UBTE Macro[macsize];
+   } [NumMacros]
+   UBTE pad;  /* to make chunk even length, if necessary */
+}
+
+The character array Macro consists of lines of ASCII text
+terminated by newlines (\n).  The field maclines tells you how many lines
+of text are in the macro in case you want to read it one line at a time.
+
+-----------------------------------------------------------------------------
+SBAS (optional)
+
+struct SBASstruct
+{
+   ULONG ID;
+   ULONG Size;
+   ULONG NumSBASes;
+   struct
+   {
+      UWORD basisnum; /* basis number */
+      UWORD step; /* point step */
+      COORFLOAT Basis[4][4]; /* basis matrix */
+   } [NumSBASes];
+   UBTE pad;  /* to make chunk even length, if necessary */
+}
+
+This chunk is only required if bicubic surfaces or splines are stored in
+the file.  This chunk defines the basis matrix to convert the
+control points of the spline to coefficients for the cubic equation that
+describes the spline.   The step parameter dictates how to apply the
+basis matrix to splines which use more than 4 control points but are
+still cubic in nature (like more than one linked up together).
+
+I believe three basis numbers should be reserved for these common
+splines:
+
+   Number   Spline Type
+   ------   -----------
+
+      0     Bezier spline
+      1     Uniform non-rational B-spline
+      2     Catmull-Rom spline
+
+
+I selected these spline types because they are the most common
+ones used in modellers and CAD packages.  Any other type can be
+defined at will, allowing for custom splines.
+
+-----------------------------------------------------------------------------
+TRGB (optional)
+
+struct TRGBstruct
+{
+   ULONG ID;
+   ULONG Size;
+   ULONG NumTRGBs;
+   struct
+   {
+      UWORD NumColours; /* number of components in colour model */
+      FLOAT ToRGB[NumColours][3]; /* transformation matrix */
+   } [NumTRGBs];
+   UBTE pad;  /* to make chunk even length, if necessary */
+}
+
+This chunk is optional if all colour data is specified using the RGB colour
+model. The transformation matrix for RGB colour data is simply a 3X3 identity
+matrix.
+
+For any other colour model, this chunk should be present in order to specify
+the number of components used for colours as well as the transformation matrix
+used to multiply the colours in the file to RGB.  This should suffice for most
+colour models.
+
+example:
+
+   [t00 t01 ... t0n][c0] = [R]
+   |t10 t11 ... t1n||c1|   |G|
+   [t20 t21 ... t2n]|..|   [B]
+                    [..]
+                    [cn]
+
+-----------------------------------------------------------------------------
+VERT  (optional only when HIER chunk is present else not included)
+
+struct VERTstruct
+{
+   ULONG Id;
+   ULONG Size;
+   ULONG NumVERTs;
+   struct
+   {
+      ULONG numtags;
+      struct
+      {
+         ULONG tagtype;
+         UBTE data[tagsize];
+      } [numtags]
+   } [NumVERTs];
+   UBTE pad;  /* to make chunk even length, if necessary */
+}
+
+The VERT chunk stores all vertex information.  This structure is
+now tag-based to allow for future expansion and flexibility.  The
+following tags are applicable to the VERT chunk:
+
+        OB3D_Parent
+        OB3D_Clone
+        OB3D_RelSurf
+        OB3D_TimeStamp
+        OB3D_Cycle
+        OB3D_Interpolation
+        OB3D_Script
+
+        VERT_Position
+        VERT_Velocity
+
+-----------------------------------------------------------------------------
+EDGE  (optional; if VERT chunk is missing, it is not included)
+
+   struct EDGEstruct
+   {
+      ULONG ID;
+      ULONG Size;
+      ULONG NumEDGEs;
+      struct
+      {
+         ULONG points[2];   /* index to two points of edge */
+         ULONG numtags;     /* hook for future tags */
+         struct
+         {
+            ULONG tagtype;
+            UBTE data[tagsize];
+         } [numtags]
+      } [NumEDGEs]
+      UBTE pad;  /* to make chunk even length, if necessary */
+   }
+
+The EDGE chunk stores all edges for programs that use a wireframe
+representation in their editors or renderers.  Programs that do not
+require edges do not need to store this chunk in their files.  This
+will force programs who require edges to reconstruct the edges or
+represent the objects with a bounding box.  The tags that are
+applicable to this chunk are:
+
+     none at this time
+
+
+-----------------------------------------------------------------------------
+SPLN  (optional; if VERT chunk is missing, it is not included)
+
+   struct SPLNstruct
+   {
+      ULONG ID;
+      ULONG Size;
+      ULONG NumSPLNs;
+      struct
+      {
+         ULONG numpts; /* number of points */
+         ULONG points[numpts]; /* control pts indices */
+         ULONG numtags;
+         struct
+         {
+            ULONG tagtype;
+            UBTE data[tagsize];
+         } [numtags]
+      } [NumSPLNs]
+      UBTE pad;  /* to make chunk even length, if necessary */
+   }
+
+
+The SPLN chunk is used to store any spline information.  By using various
+tags, any cubic spline or NURB (non-uniform rational B-spline) can
+be stored.  The following is a list of tags that can be used for the SPLN
+chunk:
+
+        SPLN_Basis
+        SPLN_NURB_Order
+        SPLN_TrimSurf
+        SPLN_NURBKnots
+        SPLN_NURBWeights
+
+NOTE: (for cubic splines only)
+
+   numpts=4+n*basisstep
+
+   where         n =  any integer from 0 to infinity
+         bassistep =  the step value of the basis matrix
+                      used for the spline
+
+-----------------------------------------------------------------------------
+PRIM  (optional unless HIER and VERT chunk are missing because it is not included)
+
+   struct PRIMstruct
+   {
+      ULONG ID;
+      ULONG Size;
+      ULONG NumPRIMs;
+      ULONG numtags;
+      struct
+      {
+         ULONG tagtype;
+         UBTE data[tagsize];
+      } [NumPRIMs];
+      UBTE pad;  /* to make chunk even length, if necessary */
+   }
+
+   Bicubic surfaces have played a very important role of late in CAD and
+commercial graphics.  Applications on the Amiga are now starting to model
+objects using bicubic surfaces making this chunk a necessity.
+   The importance of the NURB (non-uniform rational B-Spline) has come
+about due to the need to represent conics and quadrics accurately
+using parametric surfaces.  Bicubic surfaces can only approximate these
+surfaces but NURB surfaces can represent them exactly and enjoy the
+flexibility of B-splines as well.
+   By using various tags, this chunk can store any primitive including
+bicubic surfaces, NURB surfaces or polygons.
+   This chunk will be used to specify primitive objects.  It is
+tag-based, allowing for expansion as different primitives are supported in
+the future.   The following tags are applicable to this chunk:
+
+        OB3D_Parent
+        OB3D_TimeStamp
+        OB3D_Cycle
+        OB3D_Interpolation
+        OB3D_Script
+
+        PRIM_Points
+        PRIM_PolySmoothing
+        PRIM_SurfBasis
+        PRIM_NURBOrder
+        PRIM_Contours
+        PRIM_NURBKnots
+        PRIM_NURBWeights
+        PRIM_TextureSpace
+        PRIM_RectangularSolid
+        PRIM_Ellipsoid
+        PRIM_Prism
+        PRIM_SurfaceRevolution
+        PRIM_SemiInfiniteSpace
+        PRIM_RiSphere
+        PRIM_RiCone
+        PRIM_RiDisk
+        PRIM_RiCylinder
+        PRIM_Hyperboloid
+        PRIM_RiParaboloid
+        PRIM_RiTorus
+
+
+-----------------------------------------------------------------------------
+HIER  (optional; excluded if file is missing both VERT and LAMP chunks)
+
+struct HIERstruct
+{
+   ULONG ID;
+   ULONG Size;
+   ULONG NumHiers; /* Number of Hierarchies in chunk */
+   struct
+   {
+      ULONG numtags;
+      struct
+      {
+         ULONG tagtype;
+         UBTE data[tagsize];
+      } [numtags]
+   } [NumHiers];
+
+   UBTE pad;  /* to make chunk even length, if necessary */
+}
+
+The Hierarchy chunk is used to describe the relationships between objects,
+paths and lamps.   The following tags are applicable to this chunk:
+
+        OB3D_Name
+        OB3D_Parent
+        OB3D_Clone
+        OB3D_TimeStamp
+        OB3D_Cycle
+        OB3D_Interpolation
+        OB3D_Texture
+        OB3D_Script
+
+        HIER_Type
+        HIER_CustomTypeName
+        HIER_HierStatus
+        HIER_BoundingBox
+        HIER_LampType
+        HIER_Size
+        HIER_Shear
+        HIER_LocalOrigin
+        HIER_Velocity
+        HIER_Axes
+        HIER_PRAngles
+        HIER_XZAngles
+        HIER_Translate
+        HIER_RelPRAngles
+        HIER_RelXZAngles
+
+-----------------------------------------------------------------------------
+ATTR  (optional if TXTR is not present)
+
+   struct ATTRstruct
+   {
+      ULONG ID;
+      ULONG size;
+      ULONG NumATTRs;
+      struct
+      {
+         ULONG numtags;
+         struct
+         {
+            ULONG tagtype;
+            UBTE data[tagsize]
+         } [numtags]
+      } [NumATTRs]
+
+      UBTE pad;  /* to make chunk even length, if necessary  */
+   }
+
+The ATTR chunk stores all information about attributes.  The following tags
+are used for this chunk:
+
+        OB3D_Name
+        OB3D_TimeStamp
+        OB3D_Cycle
+        OB3D_Interpolation
+
+        ATTR_ColourSize
+        ATTR_Diffuse
+        ATTR_Reflect
+        ATTR_Transmit
+        ATTR_Ambient
+        ATTR_Illumin
+        ATTR_Opacity
+        ATTR_IndexRefract
+        ATTR_SpecHighLight
+        ATTR_PhongHighLight
+        ATTR_HighlightColour
+        ATTR_LightIntensity
+        ATTR_LightDirection
+        ATTR_ConeLight
+        ATTR_AreaLight
+        ATTR_Fog
+        ATTR_DepthCue
+        ATTR_EnvironIllumin
+        ATTR_EnvIndexRefract
+
+I am sure there are attributes that have been missed.  Further
+discussion and debate over this specification should result in the
+missing attributes being defined.
+
+-----------------------------------------------------------------------------
+TXTR  (optional)
+
+   struct TXTRstruct
+   {
+      ULONG ID;
+      ULONG Size;
+      ULONG NumTXTRs;
+      struct
+      {
+         UWORD namelen;
+         UBTE name[namelen]; /* name of texture */
+         ULONG numtags; /* number of tags for texture */
+         struct
+         {
+            ULONG tagtype;
+            UBTE data[tagsize];
+         } [numtags]
+      } [NumTXTRs];
+
+      UBTE pad;  /* to make chunk even length, if necessary  */
+   }
+
+The TXTR chunk stores all information about textures.  The following tags
+are used for this chunk:
+
+        OB3D_Name
+        OB3D_TimeStamp
+        OB3D_Cycle
+        OB3D_Interpolation
+        OB3D_Texture
+        OB3D_Script
+
+        TXTR_RenderType
+        TXTR_Space
+        TXTR_BoundingBox
+        TXTR_Center
+        TXTR_BitMap
+        TXTR_Checker
+        TXTR_Gradient
+        TXTR_Brick
+        TXTR_Wood
+        TXTR_Wave
+        TXTR_BumpMap
+
+
+I have just defined some textures to start us off.  I attempted to define
+some common textures used by most amiga rendering programs.  Further
+discussion and debate over this specification should result in the
+missing attributes being defined.
+
+-----------------------------------------------------------------------------
+BACK  (optional)
+
+   struct BACKstruct
+   {
+      ULONG ID;
+      ULONG Size;
+      ULONG numtags;
+      struct
+      {
+         ULONG tagtype;
+         UBTE data[tagsize];
+      } [numtags]
+   }
+
+
+   The BACK chunk is used to store all information required to describe
+the background of a rendered scene.  As needs expand, tags can be added
+to accomodate additional information.
+
+        BACK_GroundTexture
+        BACK_SkyTexture
+        BACK_EnviroTexture
+
+-----------------------------------------------------------------------------
+OBSV  (optional)
+
+   struct OBSVstruct
+   {
+      ULONG ID;
+      ULONG Size;
+      ULONG NumOBSVs;
+      struct
+      {
+         ULONG numtags;
+         struct
+         {
+            ULONG tagtype;
+            UBTE data[tagsize];
+         } [numtags]
+      } [NumOBSVs]
+   }
+
+   The OBSV chunk stores all parameters necessary to describe the view.
+The following tags are applicable to this chunk:
+
+        OB3D_TimeStamp
+        OB3D_Cycle
+        OB3D_Interpolation
+
+        OBSV_ObserverHierarchy
+        OBSV_TargetHierarchy
+        OBSV_Observer
+        OBSV_Target
+        OBSV_Distance
+        OBSV_Orientation
+        OBSV_Tilt
+        OBSV_FieldofView
+        OBSV_RecordingMedium
+        OBSV_FocalLength
+        OBSV_Aperture
+        OBSV_StopNumber
+        OBSV_ShutterSpeed
+        OBSV_Separation
+
+-----------------------------------------------------------------------------
+DISP  (optional)
+
+   struct DISPstruct
+   {
+      ULONG ID;
+      ULONG Size;
+      ULONG NumDisps;
+      struct
+      {
+         ULONG numtags;
+         struct
+         {
+            ULONG tagtype;
+            UBTE data[tagsize];
+         } [numtags]
+      } [NumDisps]
+   }
+
+The DISP chunk is to be used to save the various displays programs use.
+The tags used for this chunk are:
+
+        OBSV_Observer
+        OBSV_Target
+        OBSV_Distance
+        OBSV_Orientation
+        OBSV_Tilt
+        OBSV_FieldofView
+        OBSV_RecordingMedium
+        OBSV_FocalLength
+        OBSV_Aperture
+        OBSV_StopNumber
+        OBSV_ShutterSpeed
+        OBSV_Separation
+
+        DISP_WindowParms
+        DISP_ViewStatus
+        DISP_FrameRate
+
+-----------------------------------------------------------------------------
+
+Tags for the OB3D FORM
+----------------------
+
+Label                  Offset
+Data                   Description
+----                   -----------
+
+                       OB3D_TagBase+ (0x00000000)
+OB3D_Name                   0
+UWORD namelen;
+UBTE name[namelen];   name of entity (not null terminated)
+
+OB3D_Parent                 1
+ULONG parent;          index to parent entity
+
+OB3D_Clone                  2
+ULONG clone;           index to clone entity
+
+OB3D_RelSurf                3
+ULONG relsurf;         index to clone entity
+
+OB3D_TimeStamp              4
+TIMEFLOAT timestamp;   timestamp for tags that follow
+
+OB3D_Cycle                  5
+TIMEFLOAT start,
+TIMEFLOAT length;      start ad length of cycle
+
+OB3D_Interpolation          6
+ULONG status;          interpolate parameters to next key-frame
+                       possible status flags are:
+
+                           Label       Value  Description
+                           -----       -----  -----------
+
+                                  0x00000800  reserved for interpolation
+                                      to      flags not yet contemplated
+                                  0x00000010
+
+                        PVSPLINE  0x00000008  spline parameters to next
+                                              key-frame using positions
+                                              and velocities
+
+                         PSPLINE  0x00000004  spline parameters to
+                                              next key-frame using
+                                              positions only
+
+                          LINEAR  0x00000002  linearly interpolate
+                                              parameters to next key-frame
+
+                             OFF  0x00000001  turn off
+
+
+OB3D_Texture                7
+ULONG texture;         index to entity's texture
+
+OB3D_Script                 8
+UWORD namelen;
+UBTE name[namelen];   name of script
+
+-----------------------------------------------------------------------------
+                       VERT_TagBase+ (0x00010000)
+VERT_Position               0
+COORFLOAT position[3];   position of vertex at the indicated key-frame
+
+VERT_Velocity               1
+COORFLOAT velocity[3];   velocity of vertex at the indicated key-frame
+
+-----------------------------------------------------------------------------
+
+                       SPLN_TagBase+ (0x00020000)
+SPLN_Basis                  0
+UWORD basisnum;          index to basis matrix for cubic spline
+
+SPLN_NURB_Order             1
+UWORD order;             order of NURB
+
+SPLN_TrimSurf               2
+ULONG trimsurf;          index to surface that this spline trims
+
+SPLN_NURBKnots              3
+UWORD num;
+FLOAT knots[num];        array of knot values for NURB
+
+SPLN_NURBWeights            4
+COORFLOAT
+weights[numpts];         array of weights for control points
+
+-----------------------------------------------------------------------------
+
+                       PRIM_PolyTagBase+ (0x00030000)
+PRIM_Points                 0
+ULONG numpts;
+ULONG points[numpts];    array of control point indices
+                         (for NURB and bicubic surfaces,
+
+                           numpts = upts*vpts
+                           where there are vpts rows of upts indices)
+
+
+PRIM_PolySmoothing          1
+UWORD smoothing;         The smoothing variable describes the type
+                         of normal smoothing to use when rendering
+                         polygons.
+                         The following values are valid:
+
+                         0 - no smoothing
+                         1 - Phong normal smoothing
+
+                       PRIM_SurfTagBase+ (0x00031000)
+PRIM_SurfBasis              5
+UWORD ubasis, vbasis;    basis index for u and v direction
+
+PRIM_NURBOrder              1
+UWORD uorder, vorder;    order of NURB for both u and v directions
+
+PRIM_Contours               2
+UWORD ucon, vcon;        contours for both u and v direction
+
+PRIM_NURBKnots              3
+UWORD unum, vnum;
+FLOAT uknots[unum];
+FLOAT vknots[vnum];      NURB knots for both u and v direction
+
+PRIM_NURBWeights            4
+COORFLOAT weights
+[numupts*numvpts];       array of weights for control points
+
+PRIM_TextureSpace           5
+FLOAT umin, vmin,
+      umax, vmax;        Mapping limits in texture space
+
+
+                       PRIM_PrimTagBase+ (0x00032000)
+PRIM_RectangularSolid       0
+                         orientation/size/position determined by parent
+                         hierarchy
+
+PRIM_Ellipsoid              1
+                         orientation/size/position determined by parent
+                         hierarchy
+
+PRIM_Prism                  2
+ULONG hierindex;         extrusion of any contour by a specified length
+                         index to hierarchy containing the contour and
+                         parent hierarchy determines the size
+
+PRIM_SurfaceRevolution      3
+UWORD axis;              0 - X,   1 - ,   2 - Z
+FLOAT anglerev;          a contour spun around a specific axis
+
+PRIM_SemiInfiniteSpace      4
+COORFLOAT
+vec1[3], vec2[3];        a plane whose normal (right hand rule)
+                         defines the direction in which the
+                         space extends
+
+PRIM_RiSphere               5
+COORFLOAT radius;
+COORFLOAT zmin, zmax;
+FLOAT thetamax;          sphere primitive ala RenderMan
+
+PRIM_RiCone                 6
+COORFLOAT radius;
+COORFLOAT height;
+FLOAT thetamax;          cone primitive ala RenderMan
+
+PRIM_RiDisk                 7
+COORFLOAT radius;
+COORFLOAT height;
+FLOAT thetamax;          disk primitive ala RenderMan
+
+PRIM_RiCylinder             8
+COORFLOAT radius;
+COORFLOAT zmin, zmax;
+FLOAT thetamax;          cylinder primitive ala RenderMan
+
+PRIM_Hyperboloid            9
+COORFLOAT point1[3],
+          point2[3];
+FLOAT thetamax;          hyperboloid primitive ala RenderMan
+
+PRIM_RiParaboloid          10
+COORFLOAT radiusmax;
+COORFLOAT zmin, zmax;
+FLOAT thetamax;          cylinder primitive ala RenderMan
+
+PRIM_RiTorus               11
+COORFLOAT majorrad, minorrad;
+COORFLOAT phimin, phimax;
+FLOAT thetamax;          cylinder primitive ala RenderMan
+
+
+			for details of the RenderMan primitives above,
+                        consult pp. 62-63 of the RenderMan Companion by
+                        Steve Upstill (Publisher: Addison Wesley)
+
+-----------------------------------------------------------------------------
+
+                       HIER_TagBase+ (0x00040000)
+HIER_Type                   0
+ULONG type;             type of hierarchy
+                        Currently, the following types are supported:
+
+                           Type  Label          Description
+                           ----  -----          -----------
+
+                            0    HT_EMPT       empty
+
+                            1    HT_PATH        path
+
+                            2    HT_OBJECT      object defined using vertices
+
+                            4    HT_CSGOBJECT   object defined using PRIMitives
+
+                            5    HT_LAMP        lamp and possibly objects
+                                                (for compatibility with existing software)
+
+                            6    HT_CUSTOM      custom object (type name supplied with tag)
+
+                           10    HT_SSOBJECTS  objects for internal use only
+
+HIER_CustomTypeName         1
+UWORD namelen;
+UBTE name[namelen];   name of custom hierarchy type (not null terminated)
+
+
+
+HIER_HierStatus             2
+ULONG status;           status of hierarchy
+
+                        Label       Value       Description
+                        -----       -----       -----------
+
+                                    0x00800000  reserved for future use
+                                        to
+                                    0x00010000
+
+                        HEEDGES     0x00008000  draw object during operation
+
+                        HEEXTENT    0x00004000  draw extent during operation
+
+                        HNEDGES     0x00002000  draw object when refreshing
+
+                        HNEXTENT    0x00001000  draw extent when refreshing
+
+                                    0x00000800  reserved for future use
+                                        to
+                                    0x00000080
+
+                        HUNION      0x00000040  object Boolean OR
+
+                        HINTERSECT  0x00000020  object Boolean AND
+
+                        HSUB        0x00000010  object subtract
+
+                        HOFF        0x00000008  object/hierarchy is off
+                                                in editor
+                        HTPEDIT     0x00000004  object surface trim curve
+                                                points are editable
+                        HEDIT       0x00000002  object surface control
+                                                points are editable
+                        HSELECT     0x00000001  object is selected
+
+
+
+HIER_BoundingBox            3
+FLOAT low[3], high[3];  bounding box of hierarchy
+
+HIER_LampType               4
+UWORD lamptype;         lamp type/behaviour
+                           0 - directional light source
+                           1 - point source (inverse square law)
+                           2 - conical light source
+                           3 - cylindrical light source
+                           4 - area light source
+
+
+HIER_Size                   5
+COORFLOAT size[3];      size of axes
+
+HIER_Shear                  6
+COORFLOAT shear[6];     size of shear components
+                           0 - X-axis -component
+                           1 - X-axis Z-component
+                           2 - -axis X-component
+                           3 - -axis Z-component
+                           4 - Z-axis X-component
+                           5 - Z-axis -component
+
+HIER_LocalOrigin            7
+COORFLOAT locorig[3];   position wrt. parent's space
+
+HIER_Velocity               8
+COORFLOAT velocity[3];  velocity wrt. parent's space
+
+HIER_Axes                   9
+COORFLOAT axes[3][3];   normalized axes
+                           row 0 - X axis
+                           row 1 -  axis
+                           row 2 - Z axis
+
+HIER_PRAngles             10
+FLOAT yprang[3];        angles for yaw, pitch and roll
+
+HIER_XZAngles             11
+FLOAT xyzang[3];        angles for X,  and Z-axis rotations
+                        in this order
+
+HIER_Translate             12
+COORFLOAT trans[3];     translate last local origin using this vector
+
+HIER_RelPRAngles          13
+FLOAT yprang[3];        relative angles for yaw, pitch and roll
+                        from last key-frame
+
+HIER_RelXZAngles          14
+FLOAT xyzang[3];        relative angles for X,  and Z-axis rotations
+                        in this order from last key-frame
+
+-----------------------------------------------------------------------------
+
+                       OBSV_TagBase+ (0x00050000)
+OBSV_ObserverHierarchy      0
+ULONG  index;           index to observer hierarchy
+
+OBSV_TargetHierarchy        1
+ULONG  index;           index to target hierarchy
+
+OBSV_Observer               2
+COORFLOAT Observer[3];  location of observer/camera
+
+OBSV_Target                 3
+COORFLOAT Target[3];    location of target
+
+OBSV_Distance               4
+COORFLOAT Distance[3];  distance to focal plane
+
+OBSV_Orientation            5
+FLOAT yprang[3];        angles for yaw, pitch and roll of camera
+
+OBSV_Tilt                   6
+FLOAT tilt;             tilt angle of camera
+
+OBSV_FieldofView            7
+FLOAT separation;       separation (for stereo)
+
+OBSV_RecordingMedium        8
+FLOAT recwidth,
+      recheight;        width/height of recording medium ie.
+                        35mm film, CCD, etc.
+
+OBSV_FocalLength            9
+FLOAT FocalLength;      focal length of lens : mm
+
+OBSV_Aperture              10
+FLOAT aperture;         size of aperture in mm
+
+OBSV_StopNumber            11
+FLOAT stopnum;          stop number
+
+OBSV_ShutterSpeed          12
+FLOAT shutspeed;        shutter speed
+
+OBSV_Separation            13
+FLOAT separation;       view separation (for stereoscopic views)
+
+-----------------------------------------------------------------------------
+
+                       DISP_TagBase+ (0x00060000)
+DISP_WindowParms            0
+WORD left, top,
+      width, height;    parameters of windows in virtual screen coordinates
+
+DISP_ViewStatus             1
+ULONG viewstatus;       status of display
+                           Label          Value
+                           -----          -----
+                           VOLUMERENDER   0x00000800  volume rendering
+                           RADIOSIT      0x00000400  radiosity
+                           RATRACE       0x00000200  raytracing
+                           PHONGSHADE     0x00000100  Phong shading
+                           GORAUDSHADE    0x00000080  Goraud shading
+                           SOLIDMODEL     0x00000040  solid shading
+                           HIDDENLINE     0x00000020  hidden line removal
+                           WIREFRAME      0x00000010  wireframe
+                           ZBUFFER        0x00000008  z-buffer
+                           SCANLINE       0x00000004  scanline
+                           XSPECS         0x00000002  stereo with XSPECS
+                                                      (interlaced)
+                           PERSPECT       0x00000001  perspective on
+
+
+DISP_FrameRate              2
+FLOAT framerate;        framerate in display
+
+
+-----------------------------------------------------------------------------
+
+                       BACK_TagBase+ (0x00070000)
+BACK_GroundTexture          0
+ULONG texindex;         index to ground texture
+
+BACK_SkyTexture             1
+ULONG texindex;         index to sky texture
+
+BACK_EnviroTexture          2
+ULONG texindex;         index to environment texture
+
+-----------------------------------------------------------------------------
+
+->Light Characteristics<-
+                       ATTR_LightTagBase+ (0x00080000)
+
+ATTR_ColourSize             0
+UWORD cols;             number of colour components for attribute
+
+ATTR_Diffuse                1
+ATTFLOAT
+diffuse[cols];          diffuse colour components
+
+ATTR_Reflect                2
+ATTFLOAT
+reflect[cols];          reflected colour components
+
+ATTR_Transmit               3
+ATTFLOAT
+transmit[cols];         transmitted colour components
+
+ATTR_Ambient                4
+ATTFLOAT
+ambient [cols];         ambient colour components
+
+ATTR_Illumin                5
+ATTFLOAT
+illumin [cols];         illuminated colour components
+
+ATTR_Opacity                6
+ATTFLOAT opacity;       illuminated colour components
+
+ATTR_IndexRefract           7
+FLOAT indexref[cols];   indices or refraction for each colour components
+
+
+ 7-14    reserved for future light characteristics
+
+
+->Highlight Parameters<-
+
+                       ATTR_HighlightTagBase+ (0x00081000)
+
+ATTR_SpecHighLight          0
+ATTFLOAT
+specularpercent,
+roughness;              parameters for specular highlights
+
+ATTR_PhongHighLight         1
+ATTFLOAT
+phongpercent,
+phongsize;              parameters for Phong highlights
+
+ATTR_HighlightColour        2
+ATTFLOAT
+highlight[cols];        highlight colour components
+
+
+18-19    reserved for future highlight types
+
+
+->Lamp Attributes<-
+
+                       ATTR_LampTagBase+ (0x00082000)
+
+ATTR_LightIntensity         0
+ATTFLOAT intensity;     intensity of light source
+
+ATTR_LightDirection         1
+COORFLOAT dir[3];       direction of light source
+
+ATTR_ConeLight              2
+FLOAT coneangle,
+      conedeltaangle,
+      beamdistrib;      parameters for conic light source
+
+ATTR_AreaLight              3
+UWORD width, height;    sample grid size for area light source
+
+
+24-30   reserved for future lamp characteristics
+
+
+->Environmental Attributes<-
+
+                       ATTR_EnviroTagBase+ (0x00083000)
+
+ATTR_Fog                   31
+ATTFLOAT col[cols];     fog parameters
+FLOAT mindist;          distance to start fog and fog colours
+
+ATTR_DepthCue              32
+ATTFLOAT col[cols];     depth cue parameters
+FLOAT mindist;
+FLOAT maxdist;          min. and max. distance over which depth cueing
+                        will occur
+
+ATTR_EnvironIllumin        33
+ATTFLOAT illum[cols];   ambient illumination color components
+
+ATTR_EnvIndexRefract       34
+FLOAT index;            index of refraction of the environment
+
+
+35-50  reserved for future environment attributes
+
+
+-----------------------------------------------------------------------------
+
+                       TXTR_TagBase+ (0x00090000)
+
+
+TXTR_Default                0
+ULONG attindex;         index to default attribute serve as a base attribute
+                        to provide defaults to values not modified by
+                        additional texture tags
+
+TXTR_RenderType             1
+ULONG rendertype;       tags following this one will define textures for
+                        the specified type of rendering
+
+                        The following are valid rendertypes:
+
+                           TXTR_SOLIDSHADING    0x00000001
+                           TXTR_GORAUDSHADING   0x00000002
+                           TXTR_PHONGSHADING    0x00000004
+                           TXTR_ZBUFFER         0x00000008
+                           TXTR_RATRACING      0x00000010
+                           TXTR_RADIOSIT       0x00000020
+                           TXTR_VOLUMESHADING   0x00000040
+
+TXTR_Space                  2
+UWORD size;            the size of texture space
+
+TXTR_BoundingBox            3
+COORFLOAT low[size],
+         high[size];   bounding box of n-dimensional texture space
+
+TXTR_Center                 4
+COORFLOAT cen[size];   limits of n-dimensional texture space
+
+TXTR_BitMap                 5
+UWORD namelen;
+UBTE name[namelen];   (not null terminated)
+UWORD channel;         bitmap texture
+
+
+                       TXTR_AttribTagBase+ (0x00091000)
+
+
+TXTR_Checker                0
+COORFLOAT scale[size];
+ULONG att[2];          checker texture
+
+TXTR_Gradient               1
+ULONG att[size*2];     gradient texture
+
+TXTR_Brick                  2
+COORFLOAT mortscale;   thickness of mortar
+COORFLOAT scale[size]; size of brick
+ULONG attindex[2];     brick texture
+
+TXTR_Wood                   3
+float ringscale;
+ULONG lightcolour,     indices to attributes for light-coloured wood,
+      darkcolour;      dark-coloured wood and base attributes
+
+                       TXTR_NormalTagBase+ (0x00092000)
+
+
+TXTR_Wave                   0
+BOOL displacement;
+FLOAT phase,amplitude,
+   wavelength,damping; wave normal mapping
+
+TXTR_BumpMap                1
+FLOAT minheight,
+      maxheight;       bump map texture
+                       (requires TXTR_BitMap tag to precede it)
+
+--------------------------------------------------------------------------
+
+                       SURF-X_TagBase+ (0x000A0000)
+reserved for SurF-X program-specific tags
+
+                       xxxxxx_TagBase+ (0x000B0000)-(0xFFFF0000)
+reserved for other program-specific tags or tags for new chunks added to
+this spec in the future
+
+these sections can include private tags designed for internal use such
+as cutting and pasting.  tags that are general enough for all programs
+should go in one of the chunk sections if appropriate
+
+
+

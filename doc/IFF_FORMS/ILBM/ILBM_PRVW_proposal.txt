@@ -1,0 +1,12 @@
+A mini duplicate ILBM used for preview (Gary Bonham)
+
+Registered 9/91 by Oxxi's Gary Bonham
+
+PRVW is just like an ILBM but is nested in an ILBM.  It is a
+miniature version of the picture.
+
+He didn't call it ILBM because he didn't want editors and parsers
+getting confused and delving in.
+
+He didn't use a CAT for obvious reasons (like they blow up DPaint
+and nobody can read them).

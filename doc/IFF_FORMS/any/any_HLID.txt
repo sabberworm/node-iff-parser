@@ -1,0 +1,23 @@
+HotLink IDentification (Soft-Logik)
+
+HLID Generic chunk
+==================
+
+Submitted by Dan Weiss, Deron Kazmaier, and Gary Knight (8/29/91)
+
+Chunk ID: "HLID" (HotLink IDentification)
+Description:  This chunk is used by applications that store local copies of
+HotLink'ed files.  When an application reads in a local copy and finds a HLID
+chunk, the application can check if any changes have been made to the file
+and get the new changes if any have been made. Also the application can set
+up a notification on the file, and treat it just like the application subscribed
+to the file. The format of the chunk is 3 long words. The first two hold the
+publication ID and the last one holds the publication version number. These
+are all the entries needed to load a hotlink'ed file from HotLinks.
+
+Example:
+                        HLID            ;chunk ID
+                        0000000C        ;chunk length (12 bytes)
+                        00000001        ;publication ID (part 1)
+                        00000005        ;publication ID (part 2)
+                        00000002        ;publication version number

@@ -1,0 +1,74 @@
+ASDG's File SPLiTting system
+
+
+Here is the IFF SPLT Form.
+It is intended to provide a way to split big files into
+smaller pieces. I am developing program to read/write this
+format on a variety of platforms. Currently I have Amiga
+and MSDOS versions.
+
+It could also be used to encapsulate binary files.
+
+Also,  my  program  generates,  and  expects,  SPLT  file names of the form
+"name.001",  "name.002".  This oughta be part of the specification for this
+format, although such details are beyond the scope of IFF.
+
+	FORMnnnnSPLT
+	Chunk types:
+		INFOnnnn	Information about the data file
+			total_size	Total size of original file **
+			count		Total number of chunks. **
+			position	Position this chunk was in original file
+					This is defined bye:
+					 "Seek(file, position, OFFSET_BEGINNING)"
+			unit_number	Number of this chunk, from 0..(count-1)
+			secs		UNIX date format, seconds since Jan 1 1970
+					AmigaDOS Seconds + 252482400 == UNIX Seconds.
+			bits		File mode bits...defined by AmigaDOS
+			compression	Compression type for the BODY chunk
+					Compression types can be different for
+					each BODY chunk.
+					No compression types are defined yet.
+				
+		EOF 0004
+			flag	either TRUE or FALSE.
+		CHKS0004
+			sum	The sum of the data in this chunk
+				Sum the data chunk, a byte at
+				a time. For example:
+
+					long sum = 0;
+					UBYTE *p = buffer;
+					
+					for(i=0;i<length;i++) sum += *p++;
+
+		TYPEnnnn
+			type	Mac filetype info. As yet this is
+				not clearly defined. I will further define
+				this when a Mac port is done. RSN
+		NAMEnnnn
+			chars	The original filename. Do not depend on NULL
+				termination.
+		BODYnnnn
+			..	The actual data for this chunk
+			
+The INFO chunk MUST appear before the BODY chunk.  Also, the NAME chunk has
+to  appear  before  the BODY chunk in the first file in order to be useful.
+The NAME chunk is not required.
+	
+The EOF chunk is not required except as noted below.
+
+Note that the unit number in the INFO chunk start numbering things at
+zero, but my SPLT writer writes files with names starting at 001.
+
+**  The  totalsize  and count fields may be zero.  If this is the case then
+the  file size and or chunk size could not be known ahead of time.  Readers
+of  this  FORM  should  expect this.  The last file in a sequence MUST then
+have  an  EOF chunk with contents of TRUE.  If a file has a true EOF chunk,
+then the data section MAY be missing.  If the last file (with total_size ==
+0)  did  not contain an EOF, with flag TRUE, chunk then the end of the data
+file is missing.
+
+ -- joe porkka, ASDG Inc.
+ 	(608) 273 6585
+ 

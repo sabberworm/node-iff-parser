@@ -1,0 +1,233 @@
+Fantavision movie format
+
+FORM FANT
+
+/*********************************************************************/
+/*                                                                   **
+** - FantForm.h                                                      **
+**                                                                   **
+**     This is the IFF movie format for Amiga Fantavision.           **
+**                                                                   **
+**     (c) Copyright 1988 Broderbund Software                        **
+**                                                                   **
+**     - FORMAT FROZED May 5, 1988 -                                 **
+**                                                                   **
+**     Implemented by Steve Hales                                    **
+**                                                                   **
+** Overvue -                                                         **
+**     This is a description of the format used for Amiga            **
+**     Fantavision.  It assumes you have intimate knowledge of how   **
+**     IFF-FORMs are constructed, layed out, and read.  This file    **
+**     can be used as a header file.  This is fairly complete, but   **
+**     I'm sure there are a few things missing.                      **
+**                                                                   **
+**     I can be reached in the following ways:                       **
+**       UseNet:   Steve_A_Hales@cup.portal.com  OR                  **
+**                 sun!cup.portal.com!Steve_A_Hales                  **
+**                                                                   **
+**       US Mail:  882 Hagemann Drive                                **
+**                 Livermore, CA, 94550-2420                         **
+**                                                                   **
+**       Phone:    (415) 449-5297                                    **
+**                                                                   **
+**     NOTE:  I cannot, by contract, give out any code to load or    **
+**            play Fantavision movies.  If that is want you want     **
+**            then you will need to contact Broderbund Software      **
+**            directly.  Their number is (415) 492-3200.             **
+**                                                                   **
+** Enjoy!  Aloha.                                                    **
+**                                                                   */
+/*********************************************************************/
+
+/* Misc Fantavision structures
+*/
+typedef struct Rect
+{
+   int left, top, right, bottom;
+};
+typedef struct Point
+{
+   int h, v;
+};
+
+/* Frame opcodes */
+#define opNEXT     0       /* go on to next frame */
+#define opREPEAT   1       /* repeat sequence starting from frame Parm rep1 times */
+#define opGOTO     2       /* goto frame Parm */
+
+/* Frame modes */
+#define fNORMAL    0x0000  /* redraw every frame */
+#define fTRACE     0x0001  /* draw into both paged screens */
+#define fLIGHTNING 0x0020  /* don't erase background */
+
+
+/* Fantavision FORM defines
+*/
+#define ID_FANT    'FANT'          /* FORM type */
+#define ID_FHDR    'FHDR'          /* Movie Header */
+#define ID_FRAM    'FRAM'          /* Format info for a Frame */
+#define ID_POLY    'POLY'          /* Format info for a Polygon */
+#define ID_CSTR    'CSTR'          /* \0 terminated string */
+
+/* Polygon modes */
+#define pTYPEMASK  0x00FF      /* type mask to get just type of poly */
+#define pSELECT    0x8000      /* is object selected? */
+#define pOUTLINE   0x4000      /* outlined polygon using DotModeSide to
+                               ** determine when to not connect a line.
+                               ** ex. 0 draws on all sides, 1 will draw on
+                               ** everyother side, 2 will leave every second
+                               ** side blank, 3 will every third side
+                               ** blank, etc. */
+#define pBACKDROP  0x2000      /* polygon will be dropped into the background
+                               ** during animation. */
+#define pMSKBITMAP 0x1000      /* bitmap has a mask */
+
+/* Polygon types */
+#define pDELETE    0x7000      /* object is a filler (its deleted from display) */
+#define pFILLED    0           /* filled polygon */
+#define pLINE      1           /* not-connected line polygon */
+#define pLINED     2           /* connected line polygon */
+#define pTEXTBLOCK 3           /* text block to draw */
+#define pCIRCLEDOT 4           /* draw circle dots at vertex's using
+                               ** dotSize at size. */
+#define pRECTDOT   5           /* draw square dots at vertex's using
+                               ** dotSize at size. */
+#define pBITMAPDOT 6           /* draw dots using a bitmap at vertex's using
+                               ** BitMap. */
+#define pBITMAP    7           /* draw just bitmap image */
+
+/* These are used for the pTEXTBLOCK polygon type
+*/
+/* Text justification
+*/
+#define tLEFT      0
+#define tCENTER    1
+#define tRIGHT     2
+/* Text style
+*/
+#define tNORMAL    (int)(FS_NORMAL)
+#define tBOLD      (int)(FSF_BOLD)
+#define tITALIC    (int)(FSF_ITALIC)
+#define tUNDERLINE (int)(FSF_UNDERLINED)
+#define tEXTENDED  (int)(FSF_EXTENDED)
+
+
+
+
+/* Fantavision movie header -
+**
+**     This header defines how much RAM is needed, how many frames, and sounds
+**     in the movie.
+*/
+typedef struct FantHeader
+{
+   int PointsPerObj;       /* number of vertexs per object */
+   int ObjsPerFrame;       /* number of objects per frame */
+   int ScreenDepth;        /* 0 to 6, for number of bit planes */
+   int ScreenWidth;        /* in pixels */
+   int ScreenHeight;       /* in pixels */
+   int BackColor;          /* background color palette number */
+   long SizeOfMovie;       /* RAM Size of movie, expanded */
+   int pad[30];            /* padding for expanding */
+   int NumberOfFrames;
+   int NumberOfSounds;
+   int NumberOfBitMaps;
+   int Background;         /* non-zero if first bitmap is a background */
+   int SpeedOfMovie;       /* 100 is normal speed, 50 is half speed, etc */
+   int pad[3];             /* expansion */
+};
+
+/* Fantavision frame info -
+**
+**     Each frame has this structure defined.
+*/
+typedef struct FrameFormat
+{
+   int OpCode;                 /* Frame opcode */
+   long Parm;                  /* contains frame number for opNEXT, opREPEAT */
+   char Rep1, Rep2;            /* Rep1 is repeat counter, Rep2 is not used */
+   int TweenRate;              /* number of tweens per frame */
+
+   int ChannelIndex[2];        /* -3 stop sound is this channel
+                               ** -2 modify current sound
+                               ** -1 no sound for this channel
+                               ** (all others) is an index into the sound
+                               ** list.  Which sound to use.
+                               */
+
+   int NumberOfPolys;          /* number of polygons in this frame */
+   int ColorPalette[32];       /* xRGB - format 4 bits per register */
+   int Pan, Tilt;              /* 0 is centered, (+-) amounts are in pixels */
+   int Modes;                  /* Frame modes */
+   int pad;                    /* expansion */
+};
+
+/* Fantavision polygon info -
+**
+**     Each polygon has this structure defined.
+*/
+typedef struct PolyFormat
+{
+   int NumberOfPoints;         /* how many vertexs for this polygon */
+   int Type;                   /* polygon type */
+   int Color;                  /* palette color number (see note 1) */
+   Rect Bounds;                /* enclosing rectangle of polygon */
+   int Depth;                  /* polygon view depth (see note 2) */
+   char DotModeSize;           /* in pixels, not larger than 40 */
+   char DotModeSide;           /* determines outlining features */
+   int OutlineColor;           /* palette color number for outline */
+   int BitMapIndex;            /* if not -1, then bitmap index into bitmap list */
+   int BMRealWidth;            /* in pixels */
+   int BMRealHeight;
+   int TextLength;             /* length of text for pTEXTBLOCK */
+   int TextJust;
+   char TextSize;              /* size in pixels */
+   char TextStyle;
+   long pad;                   /* expansion */
+   Point p[];                  /* array of points defining vertexs */
+};
+
+/* Fantavision high-level IFF format.
+**
+   FORM FANT
+       FHDR
+
+       - background -
+       FORM ILBM   if Background is non-zero
+           BMHD
+           BODY
+
+       - bitmap list -
+       NOTE:  If a bitmap has a mask, it will be compute during load time.
+
+       FORM ILBM   times NumberOfBitMaps
+           BMHD
+           BODY
+
+       - sound list -
+   {   FORM 8SVX   times NumberOfSounds
+           VHDR
+           BODY
+       SEFX    }   Default parameters for sound
+
+       - frame list -
+   {   FRAM        times NumberOfFrames
+       SEFX        if sound for channel 1.
+       SEFX        if sound for channel 2.
+       POLY        times NumberOfPolys
+     { CSTR        Text of poly if PolyType = pTEXTBLOCK
+       CSTR  } }   Name of font
+*/
+
+/******- NOTES -**********************************************************/
+/*
+** 1 - The color palette is a number from 0 to 1120.  The first 32 numbers
+**     are normal RGB colors, but the rest index into a pre-defined
+**     set of patterns.
+**
+** 2 - The view depth of each polygon determines the display order.  The
+**     higher the number the closer the polygon is to the viewer.  During
+**     editing, each polygon is assigned numbers in multiplies of 100,
+**     but to function, any number can work.
+*/
+

@@ -1,0 +1,88 @@
+Reserved for Black Belt Systems 91.12.01
+
+TITLE: PMBC - It's Coming... thoughts?
+We have created an entirely new way to store high-color
+images, specifically 24 bit accurate images. The storage
+format includes the ability to save 8 bit alpha information
+(or just a simple 1 bit mask, as appropriate) with
+the image.
+
+This method is called PMBC.
+
+PMBC provides compression that ranges from a possible
+maximum of thirty to forty times that of IFF 24, including
+the alpha channel when the IFF24 does not, to an average
+gain of about 16% over IFF24.
+
+PMBC is totally lossless; in that way, it is similar
+to IFF24 - that is why I compare it to IFF24, rather
+than JPEG, for instance. JPEG provides a much larger
+compression, but at the cost of accuracy which is totally
+unacceptable in scientific and medical work. As you
+may know, one of the board members of Black Belt is
+a Neuro-Radiologist... and he doesn't want to hear
+about "lossy" compression. :^)
+
+PMBC is available now, commercially, as a Public Interface
+load/save module for our Imagemaster and Image Professional
+products. We've gotten a fair bit of feedback on this
+initial release of it, and it's generally been positive.
+Only one user has managed to "break" the compressor
+in the sense that the PMBC file is larger than the
+equivalent IFF 24 file. We've not yet seen this mythical
+file, but we're REAL interested. :^)
+
+Another benefit of PMBC is that the compressed files
+are highly ordered when you are talking about the PMBC
+file that is created... as a result, when you LHARC
+a PMBC file, you get another significant gain. In almost
+all cases, a PMBC file is smaller than the same image
+file in IFF24 _after_ it's been compressed with LHARC.
+Then you can LHARC the PMBC file and pick up even more.
+This makes it very attractive for lots of uses.
+
+PMBC is "aware" of various colorspaces; C, M, Y, K
+results, greyscale results, and R, G and B results
+all compress exceedingly well, eliminating the need
+for a separate (like the 8 bit IFF) format for files
+in these limited spaces. In fact, in a PMBC file, if
+you have a _region_ that is inone of these spaces,
+that region will achieve significant;y higher compression
+than the rest of the image, resulting in an overall
+very high gain in, er, shrunkenness. :^)
+
+All of this is transparent to the user, all they see
+is save and load.
+
+The compressor itself is currently written in C, and
+isn't by any means optomized for speed; yet it appraches
+the speed of a similarly coded IFF24 compressor. We
+have high hopes for excellent compression speeds.
+
+Now, here is where we are at. Currently, there is no
+decent way to losslessly compress an image other than
+IFF24. PMBC can save the user in the region of 16megs
+per 100mb partition, which isn't an unreasonable amount
+of images for many users - and 16 megs is a lot to
+get back "for free" (no loss of data). We're interested
+to hear what developers in general think of the compression
+and the features I've described here. Those who wish
+to experiment with it can do so now, within Imagemaster
+or Image Professional.
+
+This is not _currently_ in an IFF wrapper, and PMBC
+itself is subject to improvement by us w/o notice until
+we are at the point where we are ready to "w5rap it
+up", he said punningly.
+
+Until then, the technology will remain proprietary.
+
+Thanks for your time.
+
+Ben Williams
+
+PS: Please, as a favor to me... if you answer this
+note, start off with "Ben..." so I'll know it's for
+me. BIX is a bit troublesome that way.
+
+==========================

@@ -1,0 +1,150 @@
+
+              IFF FORM AND CHUNK REGISTRY -  10 Februrary 1993
+
+The following is an alphabetical list of registered FORMs, generic chunks
+(shown as (any).chunkname), and registered new chunks for existing FORMs
+(shown as formname.chunkname).  The center column describes where
+additional information on the FORM or chunk may be found.  Items marked
+"EA_IFF" are described in the main chapters of the EA IFF specs.  Those
+marked "IFF_TP" are described in the third-party specications section.
+Items marked "propos" are proposals which have been submitted to CATS, some
+of which are private. And items marked with "------" are private or yet
+unreleased specifications. New chunks and FORMS should be registered with
+CATS US, IFF Registry, 1200 Wilson Drive, West Chester, PA. 19380.  Please
+make all submissions on Amiga diskette and include your address, phone, fax.
+
+(any).ANNO        	EA_IFF	EA IFF 85 Generic Annotation chunk
+(any).AUTH        	EA_IFF	EA IFF 85 Generic Author chunk
+(any).CHRS        	EA_IFF	EA IFF 85 Generic character string chunk
+(any).CSET.doc    	IFF_TP	chunk for specifying character set
+(any).FRED        	 ----	Private ASDG global chunk.
+(any).FVER.doc    	IFF_TP	chunk for 2.0 VERSION string of an IFF file
+(any).HLID.doc    	IFF_TP	HotLink IDentification (Soft-Logik)
+(any).INFO.proposa	propos	This chunk contains data usually found in a file's .info file.
+(any).JUNK.doc    	IFF_TP	Always ignore this chunk.
+(any).NAME        	EA_IFF	EA IFF 85 Generic Name of art, music, etc. chunk
+(any).TEXT        	EA_IFF	EA IFF 85 Generic unformatted ASCII text chunk
+(any).(c)         	EA_IFF	EA IFF 85 Generic Copyright text chunk
+8SVX              	EA_IFF	EA IFF 85 8-bit sound sample form
+8SVX.CHAN.PAN.doc 	IFF_TP	Stereo chunks for 8SVX form
+8SVX.SEQN.FADE.doc	IFF_TP	Looping chunks for 8SVX form
+ACBM.doc          	IFF_TP	Amiga Contiguous Bitmap form
+AHAM              	 ----	unregistered (???)
+AIFF.doc          	IFF_TP	Audio 1-32 bit samples (Mac,AppleII,Synthia Pro)
+ANBM.doc          	IFF_TP	Animated bitmap form (Framer, Deluxe Video)
+ANIM.brush.doc    	IFF_TP	ANIM brush format
+ANIM.doc          	IFF_TP	Cel animation form
+ANIM.op6.doc      	IFF_TP	Stereo (3D) Animations
+ANIM.op7          	 ----	unregistered (???)
+ANIM.op8.doc      	IFF_TP	
+ARC.proposal      	propos	archive format proposal	(old)
+ARES              	 ----	unregistered (???)
+ATXT              	 ----	temporarily reserved
+AVCF                    private AmigaVision Flow format (currently private)
+BANK              	 ----	Soundquest Editor/Librarian MIDI Sysex dump
+BBSD              	 ----	BBS Database, F.Patnaude,Jr., Phalanx Software
+C100              	 ----	Cloanto Italia private format
+CAT               	EA_IFF	EA IFF 85 group identifier
+CELP.proposal     	propos	For storage of compressed ZyXEL voice data (reserved)
+CHBM              	 ----	Chunky bitmap (name reserved by Eric Lavitsky)
+CLIP              	 ----	CAT CLIP to hold various formats in clipboard
+CMUS.proposal     	propos	Common MUsical Score
+CPFM              	 ----	Cloanto Personal FontMaker (doc in their manual)
+DCCL              	 ----	DCCL - DCTV paint clip
+DCPA              	 ----	DCPA - DCTV paint palette
+DCTV              	 ----	DCTV - DCTV raw picture file
+DECK              	 ----	private format for Inovatronics CanDo
+DEEP.doc          	IFF_TP	Chunky pixel image files (Used in TV Paint)
+DR2D.doc          	IFF_TP	2-D Object standard format
+DRAW              	 ----	reserved by Jim Bayless, 12/90
+DTYP.doc          	IFF_TP	DataTypes Identification
+EXEC.proposal     	propos	Proposed FORM for executable (loadseg-able) code.
+FANT.doc          	IFF_TP	Fantavision movie format
+FAX3              	 ----	private GPSoftware FAX format, no longer used.
+FAXX.GPHD.doc     	IFF_TP	Additional header info for FAXX FORMs
+FAXX.doc          	IFF_TP	FAXX (Facsimile image FORM)
+FIGR              	 ----	Deluxe Video - reserved
+FILM              	 ----	LIST FILM - For storing ILBMs with interleaved 8SVX audio
+FNTR              	EA_IFF	EA IFF 85 reserved for raster font
+FNTV              	EA_IFF	EA IFF 85 reserved for vector font
+FORM              	EA_IFF	EA IFF 85 group identifier
+FTXT              	EA_IFF	EA IFF 85 formatted text form
+GRYP.proposal     	propos	byteplane storage proposal (copyrighted)
+GSCR              	EA_IFF	EA IFF 85 reserved gen. music score
+GUI.proposal      	propos	user interface storage proposal (private)
+HEAD.doc          	IFF_TP	Flow -  New Horizons Software
+ILBM              	EA_IFF	EA IFF 85 raster bitmap form
+ILBM.3DCM         	 ----	reserved by Haitex
+ILBM.3DPA         	 ----	reserved by Haitex
+ILBM.ASDG         	 ----	private ASDG application chunk
+ILBM.BHBA         	 ----	private Photon Paint chunk (brushes)
+ILBM.BHCP         	 ----	private Photon Paint chunk (screens)
+ILBM.BHSM         	 ----	private Photon Paint chunk
+ILBM.CLUT.doc     	IFF_TP	Color Lookup Table chunk
+ILBM.CMYK.doc     	IFF_TP	Cyan, Magenta, Yellow, & Black color map (Soft-Logik)
+ILBM.CNAM.doc     	IFF_TP	Color naming chunk (Soft-Logik)
+ILBM.CTBL.DYCP.doc	IFF_TP	Newtek Dynamic Ham color chunks
+ILBM.DCTV         	 ----	reserved
+ILBM.DGVW         	 ----	private Newtek DigiView chunk
+ILBM.DPI.doc      	IFF_TP	Dots per inch chunk
+ILBM.DPPV.doc     	IFF_TP	DPaint perspective chunk (EA)
+ILBM.DRNG.doc     	IFF_TP	DPaint IV enhanced color cycle chunk (EA)
+ILBM.EPSF.doc     	IFF_TP	Encapsulated Postscript chunk
+ILBM.PCHG.doc     	IFF_TP	Line by line palette control information (Sebastiano Vigna)
+ILBM.PRVW.proposal	propos	A mini duplicate ILBM used for preview (Gary Bonham)
+ILBM.TMAP         	 ----	Transparency map (temporarily reserved)
+ILBM.VTAG.proposal	propos	Viewmode tags chunk suggestion
+ILBM.XBMI.doc     	IFF_TP	eXtended BitMap Information (Soft-Logik)
+ILBM.XSSL.doc     	IFF_TP	Identifier chunk for 3d X-Specs image. (Haitex)
+IOBJ              	 ----	reserved by Seven Seas Software
+IODK              	 ----	reserved for Jean-Marc Porchet at Merging Technologies
+ITRF              	 ----	reserved
+JMOV              	 ----	Reserved for Merging Technologies
+LIST              	EA_IFF	EA IFF 85 group identifier
+MFAX              	 ----	Reserved for TKR GmbH & Co.
+MIDI              	 ----	Circum Design
+MOVI              	 ----	LIST MOVI - private format
+MSCX              	 ----	private Music-X format
+MSMP              	 ----	temporarily reserved
+MTRX.doc          	IFF_TP	Numerical data storage (MathVision - Seven Seas)
+NSEQ              	 ----	Numerical sequence (Stockhausen GmbH)
+OB3D.proposal     	propos	Proposal for a stadard 3D object format
+OCMP              	EA_IFF	EA IFF 85 reserved computer prop
+OCPU              	EA_IFF	EA IFF 85 reserved processor prop
+OPGM              	EA_IFF	EA IFF 85 reserved program prop
+OSN               	EA_IFF	EA IFF 85 reserved serial num prop
+PGTB.doc          	IFF_TP	Program traceback (SAS Institute)
+PICS              	EA_IFF	EA IFF 85 reserved Macintosh picture
+PLBM              	EA_IFF	EA IFF 85 reserved obsolete name
+PMBC.proposal     	propos	Reserved for Black Belt Systems 91.12.01
+PREF              	 ----	Reserved by Commodore for user preferences data, currently private.
+PROP              	EA_IFF	EA IFF 85 group identifier
+PRSP.doc          	IFF_TP	DPaint IV perspective move form (EA)
+PTCH              	 ----	Patch file format (SAS Institute)
+PTXT              	 ----	temporarily reserved
+RGB4              	 ----	4-bit RGB (format not available)
+RGBN-RGB8.doc     	IFF_TP	RGB image forms, Turbo Silver (Impulse)
+RGBX              	 ----	temporarily reserved
+ROXN              	 ----	private animation form
+SAMP.doc          	IFF_TP	Sampled sound format
+SC3D              	 ----	private scene format (Sculpt-3D)
+SHAK              	 ----	private Shakespeare format
+SHO1              	 ----	Reserved by Gary Bonham (private)
+SHOW              	 ----	Reserved by Gary Bonham (private)
+SMUS              	EA_IFF	EA IFF 85 simple music score form
+SPLT.doc          	IFF_TP	ASDG's File SPLiTting system
+SSRE              	 ----	Reserved for Merging Technologies 92.05.04
+SWRT              	 ----	unregistered (???)
+SYTH              	 ----	SoundQuest Master Librarian MIDI System driver
+TCDE              	 ----	reserved by Merging Technologies
+TDDD.doc          	IFF_TP	3-D rendering data, Turbo Silver (Impulse)
+TERM              	 ----	unregistered (???)
+TMUI.doc          	IFF_TP	Toolmaker IFF project file format (ToolMaker V1.19)
+TREE.doc          	IFF_TP	Storage of arbitrary data structures as trees (or nested lists).
+TRKR.proposal     	propos	TRacKeR style music module format proposal
+UNAM              	EA_IFF	EA IFF 85 reserved user name prop
+USCR              	EA_IFF	EA IFF 85 reserved Uhuru score
+UVOX              	EA_IFF	EA IFF 85 reserved Uhuru Mac voice
+VDEO              	 ----	private Deluxe Video format
+WORD.doc          	IFF_TP	ProWrite document format (New Horizons)
+YUVN.doc          	IFF_TP	For storage of Y:U:V image data (MacroSystem)

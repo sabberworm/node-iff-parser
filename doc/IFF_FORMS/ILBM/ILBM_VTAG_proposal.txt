@@ -1,0 +1,20 @@
+Viewmode tags chunk suggestion
+
+From carolyn Thu Nov  9 10:32:58 1989
+Received: by cbmvax.UUCP (5.57/UUCP-Project/Commodore 12/21/87))
+	id AA07871; Thu, 9 Nov 89 10:32:48 EST
+Date: Thu, 9 Nov 89 10:32:48 EST
+From: carolyn (Carolyn Scheppner - CATS)
+Message-Id: <8911091532.AA07871@cbmvax.UUCP>
+To: amiga!bart, amiga!jimm
+Subject: VTAG chunk
+Cc: carolyn
+Status: R
+
+
+Proposal that non-address view mode tags be storable in VTAG
+chunk in an ILBM to specify, for instance, borderstransparent
+and genlock color.
+
+(from Digital Creations)
+

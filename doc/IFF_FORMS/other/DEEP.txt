@@ -1,0 +1,317 @@
+Chunky pixel image files (Used in TV Paint)
+
+IFF FORM / CHUNK DESCRIPTION
+============================
+
+Form/Chunk ID:	FORM  DEEP	(DEEP pixels)
+		Chunk DGBL	(Deep GloBaL information)
+		Chunk DPEL	(Deep Pixel ELements)
+		Chunk DLOC	(Deep display LOCation)
+		Chunk DBOD	(Deep data BODy)
+		Chunk DCHG	(Deep CHanGe buffer)
+
+Date Submitted:	10-Sep-91
+Submitted by:	Amiga Centre Scotland
+
+
+FORM
+====
+
+FORM ID:	DEEP	(DEEP pixels)
+
+FORM Purpose:
+
+To allow faster loading and saving of images when pixels are
+stored in consecutive memory locations and provide support for
+common extensions implemented on advanced graphics cards.
+
+FORM Description:
+
+This form is designed to provide support for a variety of deep
+pixels, including 24 bits images.  A deep pixel is one in which
+the pixel value is used to directly produce the output colour
+without the use of a colour look-up table and also where the
+pixel is stored in consecutive memory locations.  The format
+allows additional bits to be stored along with the colour bits
+to provide support for additional features such as masks,
+Z-buffers, linear keys, etc.
+
+The format is designed to allow different colour formats to be
+stored such as RGB, RGBA, YCM and YCMB with varying depths
+supported.  Bit ordering will be most significant bit first.
+
+
+CHUNKS
+======
+
+Chunk ID:	DGBL	(Deep GloBaL information)
+
+Chunk Purpose:
+
+Provide global information of relevance to all the data contained
+in the file.  DGBL will always be the first chunk in the file.
+
+Chunk Description:
+
+Used to provide information that is constant for all contents of
+the file.  One chunk is mandatory at the start of the file.  When
+the file is used to store a group of images it may, in
+exceptional circumstances, be necessary to add additional DGBL
+chunks.  The contents of a DGBL chunk remain valid until another
+DGBL chunk is encountered.
+
+
+Chunk ID:	DPEL	(Deep Pixel Elements)
+
+Chunk Purpose:
+
+Defines the contents of each pixel.  Enables the data content to
+be identified and handled.  Data that is unknown or not required
+can be discarded.
+
+Chunk Description:
+
+This chunk is best described by an example:
+
+	Original data = RGBA 8:8:8:4
+
+	DPEL =
+		4	(number of elements)
+			RED	(first element)
+			8	(bits in element)
+			GREEN	(second element)
+			8	(bits in second element)
+			BLUE	(third element)
+			8	(bits in third element)
+			ALPHA	(fourth element)
+			4	(bits in fourth element)
+
+	Stored data (binary) = rrrrrrrr gggggggg bbbbbbbb aaaa0000
+
+  Note:  The pixel has been padded to the next byte boundary.
+
+The elements must be defined in the order in which they are
+stored, with the most significant bit first.
+
+
+Chunk ID:	DLOC	(Deep display LOCation)
+
+Chunk Purpose:
+
+Provides information specific to the following DBOD section.
+Enables image sections to be located within the screen area
+individually & allows images with a size different to
+DisplayWidth & DisplayHeight to be stored.
+
+Chunk Description:
+
+Specifies the width, height and where to place the following Deep
+data BODy.  If no DLOC is encountered before a DBOD, the
+DisplayWidth & DisplayHeight parameters will be used as the DBOD
+image data dimensions.  The contents of a DLOC chunk remain valid
+until another DLOC chunk is encountered.
+
+
+Chunk ID:	DBOD	(Deep BODy)
+
+Chunk Purpose:
+
+Contains the image data.
+
+Chunk Description:
+
+Contains image data compressed by the method defined in DGBL.
+The image size and the location where it is to be displayed is
+provided by a DLOC chunk.  If no DLOC chunk has been read the
+data will be displayed in the upper left corner and will be
+DisplayWidth wide and DisplayHeight high.
+
+
+Chunk ID:	DCHG	(Deep CHanGe buffer)
+
+Chunk Purpose:
+
+Informs the IFF reader that a complete frame has been read.  Only
+required when multiple images are stored for cell animation.
+
+Chunk Description:
+
+When a DCHG chunk is encounter the IFF reader knows that a
+complete frame has been read.  The chunk gives the time *from the
+last frame change* before the frame should be changed again.  If
+the time has already elapsed the frame should be changed
+immediately.  A FrameRate of 0 will cause the frame changes to
+occur as fast as possible.  A FrameRate of -1 is used to indicate
+the end of the data for one frame and the start of the next in
+cases where multiple frames are stored but are not intended for
+animation.  A DCHG chunk is not required when only a single frame
+is stored.
+
+
+
+//
+//FORM DEEP
+//=========
+//
+//  Chunk DGBL
+//  ----------
+//
+    struct DGBL = {
+//
+// Size of source display
+//
+      UWORD  DisplayWidth,DisplayHeight;
+//
+// Type of compression
+//
+      UWORD  Compression;
+//
+// Pixel aspect, a ration w:h
+//
+      UBYTE  xAspect,yAspect;
+    };
+
+//
+//   Chunk DPEL
+//   ----------
+    struct DPEL = {
+//
+// Number of pixel components
+//
+    ULONG nElements;
+//
+// The TypeDepth structure is repeated nElement times to identify
+// the content of every pixel.  Pixels will always be padded to
+// byte boundaries.  The DBOD chunk will be padded to an even
+// longword boundary.
+//
+    struct TypeDepth = {
+//
+// Type of data
+//
+      UWORD cType;
+//
+// Bit depth of this type
+//
+      UWORD cBitDepth;
+      } typedepth[Nelements];
+    };
+
+//
+//  Chunk DLOC
+//  ----------
+//
+    struct DLOC = {
+//
+// Body width & height in pixels
+//
+      UWORD	w,h
+//
+// Pixel position for this image
+//
+      WORD	x,y
+    };
+
+//
+//  Chunk DBOD
+//  ----------
+//
+    pixel[0], pixel[2], pixel[3], ...., pixel[w-1]
+    pixel[((h-1)*w)], ...,pixel[h*w-1]
+
+//
+//  Chunk DCHG
+//  ----------
+//
+    struct DCHG = {
+//
+// Animation control (When multiple images are stored)
+// FrameRate - milli-seconds between frames changes
+//
+      LONG  FrameRate;
+    };
+
+Compressions currently defined:
+
+NOCOMPRESSION	=	0
+RUNLENGTH	=	1
+HUFFMAN		=	2
+DYNAMICHUFF	=	3
+JPEG		=	4
+
+Ctype currently defined:
+
+RED		=	1
+GREEN		=	2
+BLUE		=	3
+ALPHA		=	4	(no precise definition of use)
+YELLOW		=	5
+CYAN		=	6
+MAGENTA		=	7
+BLACK		=	8
+MASK		=	9
+ZBUFFER		=	10
+OPACITY		=	11
+LINEARKEY	=	12
+BINARYKEY	=	13
+
+----------------------------------------------------------------------
+
+Addendum
+========
+
+The following information is an extension to the DEEP format
+proposed by TecSoft and used in their 24 bit paint application,
+TVPaint.  The extension provides an additional compression method
+and its associated chunk.
+
+Additional compression type:
+
+TVDC		=	5
+
+Chunk ID:	TVDC	(TVPaint Deep Compression)
+
+Chunk Purpose:
+
+Provides the table of values required to enable decompression of
+the image data.
+
+Chunk Description:
+
+TVDC is a modified version of Delta compression, using a 16 word
+lookup table of delta values and also incorporates Run Length
+Limiting compression for short runs.
+
+Note that the compression is made line by line for each element
+of the chunk DPEL.  For RGBA for example we have a Red line, a
+Green line, and so on.
+
+CDepackTVDC(source,dest,table,size)
+UBYTE	*source;
+UBYTE	*dest;
+WORD	*table;
+int	size;
+{
+int	i;
+int	d;
+int	pos=0;
+UBYTE	v=0;
+
+	for(i=0;i<size;i++)
+	{
+		d=source[pos>>1];
+		if(pos++&1) d&=0xf;
+		else d>>=4;
+		v+=table[d];
+		dest[i]=v;
+		if(!table[d])
+		{
+			d=source[pos>>1];
+			if(pos++&1) d&=0xf;
+			else d>>=4;
+			while(d--) dest[++i]=v;
+		}
+	}
+	return((pos+1)/2);
+}
+

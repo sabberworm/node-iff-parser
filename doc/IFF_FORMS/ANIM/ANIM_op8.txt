@@ -1,0 +1,146 @@
+
+-------------------------------------------------------------------------
+Appendix for Anim8 Formats               Joe Porkka 10-jan-92
+-------------------------------------------------------------------------
+
+
+
+   Anim method 8 is designed for maximum playback speed and acceptable
+   packing rates (packing usually not as good as method 5, but more
+   efficient than methodes 1 -- 4). In addition, it is easier to convert
+   existing Anim5 code to support Anim8 than Anim7.
+
+   #.# Chunk Sequence:
+
+   Method 8 Anims should use the same Chunk Sequence as methods 1..5.
+   Alternativley the first frame may have a DLTA chunk instead
+   of the BODY chunk.
+   In that case the DLTA is the difference to a 'black frame'.
+   A player has to clear all bitplanes of the first bitmap to zero,
+   and then call his DLTA unpack routines for this frame.
+   The same rules about copying the first frame into both frame
+   buffers still applies in this case.
+
+                      FORM ANIM
+                      . FORM ILBM         first frame
+                      . . BMHD                normal type IFF data
+                      . . ANHD                optional animation header
+                                              chunk for timing of 1st frame.
+                      . . CMAP
+                      . . { BODY |            full picture or
+                            DLTA }            difference to 'black frame'
+                      . FORM ILBM         frame 2
+                      . . ANHD                animation header chunk
+                      . . DLTA                delta mode data
+                      . . [CMAP]
+                      . FORM ILBM         frame 3
+                      . . ANHD
+                      . . DLTA
+                      . . [CMAP]
+                           ...
+
+      The initial FORM ILBM can contain all the normal ILBM chunks,
+      such as CRNG, etc.  The BODY will normally be a standard
+      run-length-encoded data chunk (but may be any other legal
+      compression mode as indicated by the BMHD).  If desired, an ANHD
+      chunk can appear here to provide timing data for the first
+      frame.  If it is here, the operation field should be =0.
+
+      If the initial FORM ILBM uses a DLTA chunk, the ANHD chunk
+      must appear, and the operation field must be set to the
+      according anim method.
+
+      Each of the frames from frame 2 on up may use an anhd->operation
+      of 0, 5 or 8. Note that only for the first frame in the file do
+      you copy the image data into two buffers, not every time you get
+      an ANHD->operation==0.
+
+   # Chunk Formats
+   #.# ANHD Chunk for method 8
+      The ANHD chunk consists of the following data structure:
+
+           UBYTE operation  The compression method:
+                            =8 short/long Vertical Delta mode
+
+           UBYTE mask         unused
+           UWORD w,h          unused
+           WORD  x,y          unused
+           ULONG abstime      unused
+           ULONG reltime     (timing for frame relative to time
+                              previous frame was displayed - in
+                              jiffies (1/60 sec))
+           UBYTE interleave = 0 (see ANHD description above)
+           UBYTE pad0         unused
+           ULONG bits         32 option bits used by methode=4 and 5.
+                              methode 8 uses only bit #0
+
+                             bit #              set =0               set =1
+                             ===============================================
+                             0              short data           long data
+
+           UBYTE pad[16]       unused
+
+
+   #.# DLTA Chunk
+      #.#.# Format for method 8
+
+         The DLTA Chunks of method8 consists of
+
+         - 16 pointers   same as in method 5
+
+         In this method the DLTA Chunk begins with 16 pointers.
+         The first 8 longwords are pointers to the opcode lists for up to 8
+         planes. The  second set of 8 longwords are unused.  If there are
+         less than 8 Planes all unused pointers are set to zero.
+
+         Compression/decompression is performed on a plane-by-plane basis.
+         The following description of the method is similar to
+         Jim Kent's methode 5, except that data is either in WORDs or LONGS,
+         depending on bit 0 of the ANHD bits.
+
+         In methode 8 the bitplane is split into vertical columns.
+         Each column of the bitplane is compressed separately.
+         A 320x200 bitplane would have 20 columns of 200 short datas each.
+         (or 10 columns of 200 long datas)
+
+                Each column of the bitplane is compressed
+                separately.  A 320x200 bitplane would have 20
+                (WORD) or 10 (LONG)columns of 200 bytes each.
+                Each column starts with an op-count followed by a
+                number of ops.  If the op-count is zero, that's
+                ok, it just means there's no change in this
+                column from the last frame.  The ops are of three
+                classes, and followed by a varying amount of data
+                depending on which class:
+
+                  1. Skip ops - this is a word or long with the hi bit
+                     clear that says how many rows to move the "dest"
+                     pointer forward, ie to skip. It is non-zero.
+                             Note that the range of values is much larger
+                             for word and long data, 0x7fff and 0x7fffffff.
+                  2. Uniq ops - this is a word or long with the hi bit set.
+                     The hi bit is masked down and the remainder is a count
+                     of the number of bytes of data to copy literally. 
+                     It's of course followed by the data to copy.
+                             Note that the range of values is much larger
+                             for word and long data, 0x7fff and 0x7fffffff.
+                  3. Same ops - this is a 0 word or long followed by a
+                     count word or long,
+                     followed by a word or long value to repeat count times.
+                             Note that the range of values is much larger
+                             for word and long data, 0xffff and 0xffffffff.
+
+                Do bear in mind that the data is compressed vertically rather
+                than horizontally, so to get to the next word or long in the des
+tination
+                we add the number of bytes per row instead of one!
+
+        There is a slight complication in the case of long data. Normally an
+        Amiga BitMap is and even number of 16bit WORDs wide, so it is possible
+        to have an image which is not an even number or LONGs wide. For example,
+        an image which is 336 pixels wide is 42 bytes wide, 21 words wide, and
+        10.5 longs wide. In the case that the data is not an even number of longs
+        wide, and the data is to be long compressed, then the last column of
+        data is to be word compressed instead. So, that 336 pixel wide image would
+        be compress as 10 long columns and 1 word column.
+

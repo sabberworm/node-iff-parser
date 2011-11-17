@@ -1,0 +1,6 @@
+Identifier chunk for 3d X-Specs image. (Haitex)
+
+Finding an XSSL chunk in an ILBM indicates that the ILBM is to be displayed as
+a 3-D image with the X-Specs product from Haitex.
+
+The chunk contains four (4) bytes of reserved data.

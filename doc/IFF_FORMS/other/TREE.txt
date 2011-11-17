@@ -1,0 +1,87 @@
+Storage of arbitrary data structures as trees (or nested lists).
+
+Date Submitted:	23-JUN-92
+Submitted by:	Stefan Reisner
+		sr@ph-cip.Uni-Koeln.DE
+		Aachener Straße 399
+		5000 Köln 41
+		Germany
+		Phone 0221 / 40 59 16
+
+IDEA / MOTIVATION
+=================
+
+This IFF FORM format was defined as the basic filing and clipping
+format for QED and its successors.
+
+QED is mainly a symbolic math (formula) editor, but can be thought
+of (and be configured) more generally as an editor that can process
+ANY formally defined data structure representable as a tree (or
+equivalently as nested lists) of symbols (such as letters, words,
+numbers etc.).
+
+The "representation as nested lists" issue is obvious
+(at least to those who are familiar with Lisp).
+
+This approach to data abstraction tries to represent any object with
+a particular data structure by an instance of one same class, the
+class of trees (or nested lists).
+
+It should work as long as the object in question can be decomposed
+into irreducible (atomic) pieces of information that are small enough
+to be represented by textual symbols.
+
+Examples:
+
+Consider a C-style structure:
+
+	struct
+	{
+		some_type field_1;
+		...
+		some_type field_n;
+	};
+
+or a vector
+
+	some_type vector[n];
+
+Both are basically just lists of their components. The components
+are possibly structures or vectors themselves, and so on. Finally,
+"atomic" components (scalar types char, word, long, float, double)
+will appear.
+
+The tree structure can even represent data structures that are not
+as rigid as C-style structures or vectors. This can be achieved by
+placing a field identifier symbol in front of each field,
+eliminating the need of a fixed order of fields.
+
+Further examples: see the Lisp language.
+
+CHUNKS
+======
+
+The only new chunk to be defined here is FORM TREE.
+
+There are two possible shapes a FORM TREE can have: the terminal (leaf)
+shape and the non-terminal shape.
+
+Terminal (leaf) shape of a FORM TREE:
+
+The terminal shape of a FORM TREE consists of exactly one TEXT chunk
+(unformatted ASCII text), containing the terminal symbol.
+
+Non-terminal shape of a FORM TREE:
+
+The non-terminal shape of a FORM TREE consists of exactly one LIST TREE
+chunk containing itself any number (including zero) of FORM TREEs.
+
+Thus we have the following syntax:
+
+tree         ::= "FORM" #{ "TREE" ( terminal | non-terminal ) }
+terminal     ::= "TEXT" #{ symbol string }
+non-terminal ::= "LIST" #{ "TREE" tree* }
+
+The absence of PROP chunks is intentional, because they are unnecessary:
+Any such information can and should be stored as part of the actual data
+structure.

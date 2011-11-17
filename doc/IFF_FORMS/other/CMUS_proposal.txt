@@ -1,0 +1,1321 @@
+Common MUsical Score
+
+/* ========================================================================= *
+                         CMUS - Common Musical Score
+
+                     An IFF File format for interchanging
+                   musical data using Common Music Notation
+
+                            by Talin (David Joiner)
+
+                                  Verion 0.4
+ * ========================================================================= */
+
+#ifndef CMUS_H
+#define CMUS_H
+
+/* ========================================================================= *
+    Note to Non-Amiga users of this document
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        CMUS is an IFF (Interchange File Format) file. IFF is a "Meta-standard"
+    for making extensible, self-identifying file formats, and was developed
+    by Commodore and Electronic Arts. In order to understand CMUS you will
+    need to get the IFF Documentation. The quickest way to do this is to
+    get the "Amiga ROM Kernal Manual: Devices" volume and look in the Appendix.
+ * ========================================================================= *
+    Note on Timing:
+    ~~~~~~~~~~~~~~~
+        Common Music Notation is a symbolic, rather than a literal
+    representation. It is supposed to be interpreted by the player. A note
+    which is listed as "A quarter note", will seldom be played at the exact
+    time or duration as written. These deviations from mathematically perfect
+    time are important; they are part of what musicians call "feel" or
+    "liveliness".
+        Accordingly, FORM CMUS has two different kinds of timing information.
+    _Formal Time_ is represented in symbolic form: Each symbol has a field
+    which indicates it's duration (dotted quarter-note, etc) in symbolic units.
+    The formal start time of an event can be obtained by summing the durations
+    of all the previous times in the measure.
+        In addition, there is also _Casual Time_. Each event has a "start time"
+    which is the number of basic clock units from the start of the measure to
+    the start of that event. Some event types also have "duration" fields of
+    a similar nature.
+        In general, although there will probably be a strong correlation
+    between formal time and casual time, there is no guarantee of this.
+    Certainly this FORM does not enforce any relationship between the two.
+    This means that you cannot, in general, derive one from the other. You can
+    at most make an educated guess, and even that is a non-trivial problem
+    from an algorithmic point of view.
+
+ * ========================================================================= *
+    Note on Layout Measurements:
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        In general, I have tried to make all measurements as "device-
+    independent" as possible.
+
+        Measurements of page dimensions and other page-related information
+    such as margins and indentations are represented in micrometers.
+        Converting from micrometers to inches and "big points" (the definition
+    of points used by Adobe and Apple) can be done with the following
+    formulas:
+
+        inches = micrometers / 25400;
+
+        points = micrometers * 72 / 25400;
+
+        Vertical distances of musical items are all measured in "Levels".
+    A level is one half the distance between the lines of a staff. A note on
+    the centerline of the staff is at level zero. Placing the note just above
+    that line (between the 2nd and 3rd staff line) makes it level 1, while
+    placing it below the centerline makes it level -1. Note that up is positive
+    in this coordinate system.
+        Note positions are recorded as a fraction of the measure width.
+
+ * ========================================================================= *
+    Rules for clipboard use:
+    ~~~~~~~~~~~~~~~~~~~~~~~~
+        A CMUS chunk may be copied to the clipboard. In such cases, it is
+    possible that only a subset of the data might be written. Specifically,
+    measures and signatures which occur before the first selection point,
+    or after the last selection point should not be included. Note that
+    the measure containing the first selection point should be written,
+    however, even if it is not in the selection range itself. (As to whether
+    measure-lines are selectable is up to the application). In addition,
+    an initial time signature item for that measure should be written as
+    well; key signature and clef items are optional in this case. The
+    application receiving the clip has the option of whether to use the
+    signature items in the clip, or to ignore them and use the existing
+    signatures in the score. The application can also decide to "insert"
+    the clip into the score (causing existing other events to be shifted
+    later in time), or "merging" the events with the existing items.
+    The application can also choose to respect measure lines in the clip
+    (each new measure line causes the notes to be pasted into the next
+    measure) or to "flow" the notes across measure boundaries.
+        Note that the notes in a clip may be non-contiguous. For example,
+    If the user were to select every second note and copy those to the
+    clipboard, there would be "gaps" in the clipped track. Unfortunately,
+    a reader program would not be able to detect those gaps (since formal
+    time does not have an explicit start time) and thus the formal time
+    and the casual time would get out of sync. To avoid this problem,
+    "filler" events can be inserted into the score to fill up the empty space.
+    Note that the duration of a filler event is formal, unlike all the
+    other events.
+        Notation programs which only support contiguous selection (i.e.
+    can't have a deselected note between two selected notes) can ignore
+    filler items.
+        A filler event at the end of the measure is not neccessary.
+    In fact, there is no requirement in CMUS that a measure be "filled".
+    In addition, certain music programs allow more notes in a measure than
+    would legally fit (only while editing, the extra notes are never played).
+    CMUS readers should handle this case robustly.
+
+        This allows a reader to make intelligent use of the clip. The clip
+    can be pasted relative to an insertion point, and the relationship of
+    notes to measures can be (optionally) preserved, even if the selection
+    was non-contiguous.
+ * ========================================================================= *
+    Future Directions
+    ~~~~~~~~~~~~~~~~~
+        A number of musical features are currently mising from the CMUS spec,
+    such as the ability for a track to jump from one staff to another. In
+    addition, there are a number of features which would be desirable on the
+    "page" level, such as seperate margins for each page (currently, there is
+    no representation of individual pages in the spec).
+        All of these things can easily be added by defining new IFF chunks
+    or new event types. I have not done this because I feel that these
+    additional features would best be designed by the person who needs them,
+    in other words someone designing a music product that requires such
+    features and is familiar with the issues inolved. Otherwise, the format
+    might be defined wrongly, missing subtle advantages which
+*/
+
+/* ========================================================================= *
+                             General Definitions
+ * ========================================================================= */
+
+typedef long            Micrometers;
+
+#if CM_MICRO_CONVERSION
+
+    /* (optional) conversion to / from inches */
+
+#define InchesToMicros(inches)  ((inches) * 25400)
+#define MicrosToInches(micros)  (((micros) + 12700) / 25400)
+
+#define HundredthsToMicros(inches)  ((inches) * 254)
+#define MicrosToHundredths(micros)  (((micros) + 127) / 254)
+
+#define PointsToMicros(points)  (((points) * 25400 + 36) / 72)
+#define MicrosToPoints(micros)  (((micros) * 72 + 12700) / 25400)
+
+#endif
+
+/* ========================================================================= *
+                           Score Header Chunk (SCHD)
+ * ========================================================================= */
+
+typedef struct {
+    WORD                scBarsPerLine;      /* preferred bars per line      */
+    WORD                scOverallVolume;    /* overall volume of score      */
+
+    Micrometers         scPageWidth,        /* width of page                */
+                        scPageHeight,       /* height of page               */
+                        scTopMargin,        /* top margin of score on page 1*/
+                        scFirstLineIndent,  /* left margin indent on line 1 */
+                        scLineIndent;       /* left indent on other lines   */
+} CM_ScoreHeader;
+
+/* ========================================================================= *
+                            Staff Table Chunk (STAF)
+
+   This section describes the data structures which are used in the CMUS 'STAF'
+   Chunk. There is one STFF chunk per score, which contains an array of
+   StaffEntry structres (1 per staff in the document).
+
+ * ========================================================================= */
+
+typedef struct {
+    WORD                staffFlags;         /* various flags                */
+
+        /*  This defines the vertical size of a measure. Both of the distances
+            are measured from the center line of the staff (in fact all staff-
+            relative distances are represented this way).
+        */
+
+    Micrometers         staffSpaceAbove,    /* space above staff            */
+                        staffSpaceBelow;    /* space below staff            */
+
+    Micrometers         staffLevelSize;     /* distance between staff lines */
+
+} CM_StaffEntry;
+
+    /* This flag indicates that a formfeed should be done before printing
+        this staff (used when a score has more staffs than will fit on a page.
+    */
+
+#define STAFF_PAGEBREAK (1<<0)
+
+    /*  This indicates that the measure lines for this staff should not be
+        connected to the measure lines for the staff below
+    */
+
+#define STAFF_BAR_BROKEN (1<<1)
+
+    /*  This flag indicates that a set of "curly braces" should connect this
+        staff with the staff below.
+    */
+
+#define STAFF_BRACED    (1<<2)              /* Staff is "braced" with next  */
+
+    /*  These flags indicate the start and end of a square bracket which can
+        span over several staffs. The brace should start at the staff
+        marked with the "START" bit and continue until a staff with the
+        "END" bit is encountered.
+    */
+
+#define STAFF_BRACKET_START (1<<3)
+#define STAFF_BRACKET_END   (1<<4)
+
+/* ========================================================================= *
+                               Track Chunk (TRCK)
+
+   This section describes the data structures which are used in the CMUS 'TRCK'
+   Chunk.
+
+   A track is a sequence of notes which reside on a staff. In the simplest
+   case, there is one TRCK chunk per melody line in the score. However, a
+   track can contain chords, rests, etc, as well.
+
+   A more precise definition of a track is that a track is a sequence of
+   chords, where all the notes within each chord have the same start time
+   and the same duration (in formal time of course; in casual time anything
+   is possible). Note that ties can be used to create the illusion of
+   having broken this rule.
+
+ * ========================================================================= */
+
+/*  Track Header structure:
+
+    Each track begins with a track header structure, followed by any number
+    of score items. (Use the chunk length to determine when to stop reading
+    score items).
+*/
+
+typedef struct {
+    UWORD               trkStaff,           /* staff number to place this on*/
+                        trkTrack,           /* track number within staff    */
+                        trkFlags;           /* flags for staff header       */
+
+        /*  Sometimes notes on the staff are written transposed from how they
+            should actually be played. This is the number that should be added
+            to the pitch before it is actually played back.
+        */
+
+    WORD                trkTransposition;   /* playback transposition       */
+
+} CM_TrackHeader;
+
+/* ========================================================================= *
+                                      Track Item
+ * ========================================================================= */
+
+/*  Item Header:
+
+    Score items are variable in length. The first byte of the item is the
+    length of the item in WORDS. This will allow new item types to be added
+    in the future. All score items are an integer number of WORDS long.
+
+    Each score item has a standard header structure, followed by a variable
+    amount of item-specific data. The 'itemType' field is used to determine what
+    that data is.
+
+    'itemLength' is the length of the item in WORDS. This allows items to be
+    from 2 to 512 bytes long. (The value '0' is reserved as a special case).
+
+    'itemXPos' contains the X position of the item in fractions of the measure's
+    width. Note that the area containing the signatures, and the area just
+    before the ending measure line are not considered part of this range.
+    Think of it this way: The value 0 is the first possible note position.
+    The value 0x7fff if the last possible note position. Items placed at
+    these positions should not run into the graphics at either the beginning
+    or the end of the measure. In addition, negative numbers are also
+    allows, which is used for symbols which penetrate into the "signature"
+    area. In this case, 0 represents the first possible note position, and
+    -0x8000 represents the actual barline. This convention is normally only
+    used for lyrics, which can intrude into the signature area.
+
+    'itemStart' is used to represent the real starting time of each event.
+    This is recorded as a delta-time, in other words itemStart contains
+    how many clock ticks have elapsed between the current item and the item
+    before it. Note that because of the fact that events can sometimes occur
+    out of order (for example, notes in a chord can be ordered by pitch rather
+    than by time, and they might not all start at exactly the same clock),
+    this value can be negative.
+        In addition, the clock is reset at each measure boundary. In other
+    words, the length of a measure is determined only by it's time signature,
+    and not by the delta between the last note and the next measure line.
+    In fact, the itemStart field for measure line items is ignored and should
+    always be set to zero.
+        An item's start time does NOT have to exactly match the event's
+    "formal" time. For example, an event at the beginning of a measure does
+    not have to start at exactly time zero, but can be offset somewhat.
+    This allows the subtle nuances of a live performance to be preserved, if
+    the notation software allows for that capability.
+
+    The 'itemStart' field (and the noteDuration field defined later) use a
+    clock standard of 960 clock ticks per whole note. Thus, a quarter note
+    is one/quarter that, or 240. This number is divisible by 3, 5, and several
+    powers of two, making it convenient for representing triplets and
+    quintuplets as well as small note values.
+*/
+
+typedef struct {
+    UBYTE               itemLength,         /* length of item in WORDS      */
+                        itemType;           /* type of item                 */
+    WORD                itemXPos;           /* horizontal position of item  */
+    WORD                itemStart;          /* start time, in ticks         */
+} CM_ItemHeader;
+
+#define WHOLE_NOTE_DURATION     960         /* duration of a whole note     */
+
+#define MAX_ITEM_XPOS   0x7fff
+#define MMIN_ITEM_XPOS  -0x8000
+
+    /* type codes for chunk item types */
+
+enum notation_item_types {
+    MEASURE_ITEM = 0,                       /* measure line                 */
+    SIGNATURE_ITEM,                         /* time sig., key sig., or clef */
+    NOTE_ITEM,                              /* first note in a chord        */
+    CHORD_ITEM,                             /* additional notes in a chord  */
+    FILLER_ITEM,                            /* fills up empty gaps          */
+    DYNAMIC_ITEM,                           /* dynamic volume item (fff)    */
+    INSTRUMENT_ITEM,                        /* instrument change item       */
+    TEMPO_ITEM,                             /* tempo change item            */
+    REPEAT_ITEM,                            /* for jumping around in score  */
+    BEGIN_GROUP_ITEM,                       /* begin slur, crescendo, etc.  */
+    END_GROUP_ITEM,                         /* end slur, crecendo, etc.     */
+    TABLATURE_ITEM,                         /* guitar or other tablature    */
+};
+
+/* ========================================================================= *
+                                  Measure Line Item
+ * ========================================================================= */
+
+/*  This item represents the beginning of a new measure. As such, there should
+    be one of these at the beginning of the track, but not at the end.
+*/
+
+typedef struct {
+    CM_ItemHeader       measureItem;        /* item header                  */
+    Micrometers         measureWidth;       /* width of measure             */
+    UBYTE               measureFlags;       /* various flags, see below     */
+
+        /*  measureEnding: If non-zero, it means that this measure is part
+            of an ending block. The value indicates which ending this measure
+            is part of. For example, if the value = 1, then this measure
+            is only played the first time through, if the value = 2 then
+            it is only played the second time through.
+
+            Each "repeat" section in the score can have it's own set of
+            endings.
+
+            "Endings" can be longer than one measure. Each measure that
+            is encountered that has the same value of measureEnding as the
+            previous measure is considered part of the same ending.
+        */
+
+    UBYTE               measureEnding;      /* "ending" this measure is in  */
+} CM_Measure;
+
+#define MEASURE_FULL_WIDTH 0x7fff           /* full width of score          */
+
+enum measureFlags {
+
+        /*  Draw a double bar at the end of this measure. The reason for
+            associating the double-bar flag with the next measure line is
+            because double bar can occur at the end of the score but not
+            at the beginning.
+        */
+    MEASUREF_DOUBLE_BAR = (1<<0),
+
+        /*  This is a "line break", in other words it indicates that this
+            measure should start a new line.
+        */
+
+    MEASUREF_NEW_LINE   = (1<<1),
+
+        /*  If set, this flags means that the measure width was set by the
+            user. It not set, it means that measure width was calculated on
+            the fly, and can be re-adjusted feely if needed to line things
+            up. Note that this width includes signatures, but does not include
+            any indentation from the left margin of the document.
+        */
+
+    MEASUREF_FIXED      = (1<<2),
+
+};
+
+/* ========================================================================= *
+                               Signature Items
+ * ========================================================================= */
+
+    /*  Signature items are usually placed just after the measure line.
+
+        Some notators have the ability to change clef in the middle of a
+        measure, but not all notators need support this. If it is not
+        supported, and a clef is encountered in the middle of a measure, it
+        is assumed to apply to the entire measure and therefore is associated
+        with the previous measure line.
+    */
+
+    /*  Signature types: Each signature has a "sigSubType" field which
+        indicates the type of signature. In addition, the high bit of the
+        signature type field indicates that the signature should not be
+        shown visibly.
+    */
+
+enum SignatureTypes {
+    SIGTYPE_TIMESIG=1,
+    SIGTYPE_CLEF,
+    SIGTYPE_MAJORKEY,
+    SIGTYPE_MINORKEY,
+
+    SIGTYPE_HIDDEN=(1<<7)
+};
+
+    /*  Stores a time signature. 'Beats' is the number above the line, and
+        'Notes' is the number below the line. For example, '3/4' time is
+        stored as beats = 3, notes = 4.
+
+        "Common Time" (The "C" symbol) which is equivalent to 4/4 is stored
+        as 4/0 (beats = 4, notes = 0).
+
+        "Cut Time" ("C" with a slash through it) which is equivalent to
+        2/4 is stored as 2/0 (beats = 2, notes = 0).
+
+        In other words, the value "0" in "sigNotes" should always be treated
+        as the value "4" when calculating measure lengths. See the
+        MEASURE_LENGTH macro for an example of this.
+    */
+
+typedef struct {
+    CM_ItemHeader       sigItem;            /* item header                  */
+    UBYTE               sigSubType,         /* (= SIGTYPE_TIMESIG)          */
+                        sigBeats,           /* beats per bar                */
+                        sigNotes,           /* size of each beat            */
+                        sigPad;
+} CM_TimeSignature;
+
+    /* compute the measure length in clock ticks */
+
+#define MEASURE_LENGTH(beats, notes) \
+    (WHOLE_NOTE_DURATION * beats / (notes ? notes : 4))
+
+    /* stores a Clef */
+
+typedef struct {
+    CM_ItemHeader       sigItem;            /* item header                  */
+    UBYTE               sigSubType;         /* (= SIGTYPE_CLEF)             */
+    UBYTE               sigClef;            /* new clef                     */
+} CM_Clef;
+
+    /*  Definitions of clef types. Note clef modifier bits which are used as
+        part of this field as well.
+    */
+
+enum ClefTypes {
+    TREBLE_CLEF = 0,                        /* G clef in normal position    */
+    BASS_CLEF,                              /* F clef in normal position    */
+    ALTO_CLEF,                              /* C clef centered on line 3    */
+    TENOR_CLEF,                             /* C clef centered on line 2    */
+
+        /* optional clefs, some of which are obselete (in the U.S.) */
+
+    SOPRANO_CLEF,                           /* C clef centered on line 5    */
+    MEZZO_SOPRANO_CLEF,                     /* C clef centered on line 4    */
+    BARITONE_CLEF,                          /* F clef one line lower        */
+    FRENCH_VIOLIN_CLEF,                     /* G clef one line lower        */
+
+        /*  For drum scores. One of the things implied by a drum clef is that
+            there might not be a relationship between a note's vertical
+            position and it's MIDI note number, unlike other clef types.
+            (This could be especially handy for work with MIDI drum machines).
+        */
+
+    DRUM_CLEF,                              /* vertical lines or box        */
+
+        /* clef modifier bits: A clef can be raised or lowered by one or two
+            octaves. This is notated by placing a small "8" or "15" above or
+            below the clef.
+        */
+
+    CLEF_DOWN_1_OCTAVE=(1<<4),              /* clef 1 oct lower (8 below)   */
+    CLEF_DOWN_2_OCTAVES=(1<<5),             /* clef 2 oct lower (15 below)  */
+    CLEF_UP_1_OCTAVE=(1<<6),                /* clef 1 oct higher (8 above)  */
+    CLEF_UP_2_OCTAVE=(1<<7),                /* clef 2 oct higher (15 above) */
+};
+
+    /*  stores a Key Signature. (used for both major and minor)
+
+        'sigKeySig' is a signed BYTE, where '0' is the key of C. Positive
+        numbers represent the number of sharps, so 1=G, 2=D, etc, around the
+        circle of fifths. Negative numbers represent the number of flats,
+        F=-1, B-Flat = -2, etc.
+
+        For minor keys, 0 is the key of A-minor, which like C has no sharps
+        or flats.
+
+        Other types of key signatures may be supported in the future, but
+        will probably be done as a different type of signature item.
+    */
+
+typedef struct {
+    CM_ItemHeader       sigItem;            /* item header                  */
+    UBYTE               sigSubType;         /* (== SIGTYPE_KEYSIG)          */
+    BYTE                sigKeySig;          /* new key signature            */
+} CM_KeySignature;
+
+    /* major key definitions */
+
+#define KEY_OF_C_MAJOR           0
+#define KEY_OF_G_MAJOR           1
+#define KEY_OF_D_MAJOR           2
+#define KEY_OF_A_MAJOR           3
+#define KEY_OF_E_MAJOR           4
+#define KEY_OF_B_MAJOR           5
+#define KEY_OF_F_SHARP_MAJOR     6
+#define KEY_OF_C_SHARP_MAJOR     7
+#define KEY_OF_F_MAJOR          -1
+#define KEY_OF_B_FLAT_MAJOR     -2
+#define KEY_OF_E_FLAT_MAJOR     -3
+#define KEY_OF_A_FLAT_MAJOR     -4
+#define KEY_OF_D_FLAT_MAJOR     -5
+#define KEY_OF_G_FLAT_MAJOR     -6
+#define KEY_OF_C_FLAT_MAJOR     -7
+
+    /* minor key definitions */
+
+#define KEY_OF_A_MINOR           0
+#define KEY_OF_E_MINOR           1
+#define KEY_OF_B_MINOR           2
+#define KEY_OF_F_SHARP_MINOR     3
+#define KEY_OF_C_SHARP_MINOR     4
+#define KEY_OF_G_SHARP_MINOR     5
+#define KEY_OF_D_SHARP_MINOR     6
+#define KEY_OF_A_SHARP_MINOR     7
+#define KEY_OF_D_MINOR          -1
+#define KEY_OF_G_MINOR          -2
+#define KEY_OF_C_MINOR          -3
+#define KEY_OF_F_MINOR          -4
+#define KEY_OF_B_FLAT_MINOR     -5
+#define KEY_OF_E_FLAT_MINOR     -6
+#define KEY_OF_A_FLAT_MINOR     -7
+
+/* ========================================================================= *
+                              Note or Chord item
+ * ========================================================================= */
+
+    /*  Note Items.
+
+        CHORDS: The first note of a chord is always of type "note".
+        Additional notes, or "intervals" are stored using the "chord"
+        type. The itemXPos, noteTuple, noteDots, noteDivision, noteStyle,
+        noteArpeggio, noteTrill and and noteBeamHeight fields are ignored
+        for chord items and are derived from the base note, however score
+        writers should set them to the same as the base note for consistency.
+
+        RESTS: A rest is a note item with a notePitch of 255. Rests may not
+        be chorded.
+
+        DRUM HEADS: If the NOTEF_DRUM flag is set, indicating that the
+        note has a "drum head" rather than an ordinary note head, then
+        all of the pitch-modifier fields should be ignored.
+
+        OPTIONAL FIELDS: For less sophisticated programs, many of the fields
+        in the note structure can be ignored.
+            At a minimum, notation programs should look at noteLevel,
+        noteAccidental, noteDivision and noteDots. When writing, all other
+        fields can be set to zero, with the exception of noteDuration
+        which should be set to the formal duration of the note in clock
+        ticks.
+            Sequencer programs should look at notePitch and noteDuration
+        when loading CMUS scores. Writing is more difficult. It is suggested
+        that unless the program is very sophisticated, that a different
+        FORM, or perhaps a Standard MIDI File, be used for writing out
+        sequencer data, as most of the fields in CMUS have meaning only to
+        a notator-type program.
+
+        Explanation of Fields:
+        ~~~~~~~~~~~~~~~~~~~~~~
+
+        noteDuration -- The casual duration of the note.
+
+        noteFlags -- various flags which affect either this note. Note that
+            the NOTEF_TIED and NOTEF_TIEDOWN can be different for each
+            note in a chord.
+
+        noteDots: 0, 1 or 2 depending on the number of "dots" this note
+            has. A dotted note is 50% longer. A double-dotted note is
+            75% longer.
+
+        noteDivision: Indicates the base duration of the note: whole note,
+            half note, quarter note, etc.
+
+        notePitch: The MIDI pitch number for this note.
+
+        noteArpeggio: Indicates an arpeggiated chord, one where the individual
+            notes are played sequentially (like a harp).
+
+        noteTrill: Trills are a rapid alternation between two notes. There
+            are vaious kinds, see below.
+
+        noteAccidental: This includes things like sharps and flats.
+
+        noteLevel: This is the distance, in levels, from the center line of
+            the staff.
+
+        noteBeamHeight: The height of a beamed group of notes isn't always
+            related to the height that the stem would be if the note were not
+            beamed. This field is the distance, in levels, from the center
+            line of the staff to the beam's position. This field is only
+            meaningful for the first and last note of a beam.
+
+        noteStyle: This is a field of flags which indicate things like
+            Staccato, Legato, and other "performance style" modifiers.
+    */
+
+/*  What the note structure looks like with bitfields:
+
+    CM_ItemHeader       noteItem;           -- item header
+
+    UWORD               noteDuration;       -- real duration, in ticks
+    UWORD               noteFlags;
+
+    unsigned int        Pad1           : 2
+                        noteDots       : 2, -- dotted, double-dotted
+                        noteDivision   : 4, -- quarter note, etc.
+
+    UBYTE               notePitch;          -- MIDI note number
+    unsigned int        noteArpeggio   : 2, -- arpeggiation
+                        noteTrill      : 3, -- various trill types
+                        noteAccidental : 3; -- sharp, flat, etc.
+
+    BYTE                noteLevel;          -- dist from staff centerline
+    BYTE                noteBeamHeight;     -- Y position of beam
+    UBYTE               noteStyle;          -- Note Style type
+*/
+
+typedef struct {
+    CM_ItemHeader       noteItem;           /* item header                  */
+
+    UWORD               noteDuration;       /* real duration, in ticks      */
+    UWORD               noteFlags;          /* various note flags           */
+
+    UBYTE               noteDivision;       /* formal note length           */
+
+    UBYTE               notePitch;          /* MIDI note number             */
+    UBYTE               notePitchMods;      /* modifications to pitch       */
+    BYTE                noteLevel;          /* vertical position            */
+
+    BYTE                noteBeamHeight;     /* y position of beam           */
+    UBYTE               noteStyle;          /* Note Style type              */
+} CM_Note;
+
+    /* macros to access the various bitfields */
+
+#define CM_NoteDots(f)          (((f).noteDivision >> 4) & 0x03)
+#define CM_NoteDivision(f)      ((f).noteDivision & 0x0f)
+
+#define CM_NoteAccidental(f)    ((f).notePitchMods & 7)
+#define CM_NoteTrill(f)         (((f).notePitchMods >> 3) & 7)
+#define CM_NoteArpeggiation(f)  (((f).notePitchMods >> 6) & 3)
+
+#define CM_SetNoteDivision(note, division, dots) \
+        ((note).noteDivision = (dots << 4) | division)
+
+#define CM_SetNotePitchMods(note, arp, trill, accidental) \
+        ((note).notePitchMods = (arp << 6) | ((trill << 3) & 7) | (accidental & 7))
+
+#define CM_RestPitch    255
+
+enum note_dots {
+    NO_DOT = 0,                             /* Note is normal duration      */
+    DOTTED_NOTE = 1,                        /* Note is 50% longer           */
+    DOUBLE_DOTTED = 2                       /* note is 75% longer           */
+};
+
+enum note_divisions {
+    DOUBLE_WHOLE_NOTE = 0,
+    WHOLE_NOTE,
+    HALF_NOTE,
+    QUARTER_NOTE,
+    EIGHTH_NOTE,
+    SIXTEENTH_NOTE,
+    NOTE_32,
+    NOTE_64,
+    NOTE_128,
+    NOTE_256
+};
+
+enum note_accidentals {
+    NOTE_ACC_NONE=0,
+    NOTE_ACC_DOUBLE_FLAT,
+    NOTE_ACC_FLAT,
+    NOTE_ACC_HALF_FLAT,
+    NOTE_ACC_NATURAL,
+    NOTE_ACC_HALF_SHARP,
+    NOTE_ACC_SHARP,
+    NOTE_ACC_DOUBLE_SHARP,
+
+        /*  drum styles: used in place of accidental when NOTEF_DRUM is set.
+            Hollow symbols are used in place of "hollow" note heads, such
+            as half notes.
+
+            Note that the assignment of drum parts to symbols is arbtrary,
+            however the X symbol in jazz notation means "brush", and the
+            triangle symbol is often assigned to the triangle instrument.
+            Note also that normal note heads are often used for many
+            drum instruments.
+        */
+
+    NOTE_DRUM_X=0,                          /* An "x" instead of note head  */
+    NOTE_DRUM_DIAMOND,                      /* diamond shape                */
+    NOTE_DRUM_SQUARE,                       /* square box                   */
+    NOTE_DRUM_TRIANGLE,                     /* triangle                     */
+
+};
+
+    /*  trills and tremolos and other pitch modulations which can be attached
+        to a note. Note that these apply to the entire chord.
+    */
+
+enum note_trills {
+    NOTE_PMOD_NONE=0,
+    NOTE_PMOD_TRILL,
+    NOTE_PMOD_MORDENT,
+    NOTE_PMOD_INV_MORDENT,
+    NOTE_PMOD_TURN,
+};
+
+    /*  Arpeggiation, indicated as a vertical sqiggly line before the chord */
+
+enum note_arp_mods {
+    NOTE_ARPEGGIO = 1,
+    NOTE_REV_ARPEGGIO = 2,
+};
+
+    /* note style flags */
+
+#define NSTYLEF_STACCATO        (1<<0)      /* Staccatto mark ('.')         */
+#define NSTYLEF_STACCATISSIMO   (1<<1)      /* Staccattissimo mark (wedge)  */
+#define NSTYLEF_LEGATO          (1<<2)      /* Legato ('-')                 */
+#define NSTYLEF_SFORZANDO       (1<<3)      /* Szorzando ('^')              */
+#define NSTYLEF_ACCENT          (1<<4)      /* Accent ('>')                 */
+#define NSTYLEF_TENUTO          (1<<5)      /* Tenuto (short '-')           */
+
+    /* general note flags */
+
+enum noteFlags {
+    NOTEF_STEMDOWN      = (1<<0),           /* Note's stem is down          */
+    NOTEF_BEAMED        = (1<<1),           /* Note is beamed with next note*/
+    NOTEF_TIED          = (1<<2),           /* Note is tied with next note  */
+    NOTEF_TIEDOWN       = (1<<3),           /* tie direction is DOWN        */
+    NOTEF_GRACE         = (1<<4),           /* display as grace note        */
+    NOTEF_CUE           = (1<<5),           /* display as cue note          */
+    NOTEF_DRUM          = (1<<6),           /* note has a drum head         */
+    NOTEF_STEMSET       = (1<<7),           /* Stem direction fixed by user */
+
+    NOTEF_RES1          = (1<<12),          /* reserved by DMCS for play    */
+    NOTEF_RES2          = (1<<13),          /*      styles (sorry :-)       */
+    NOTEF_RES3          = (1<<14),
+    NOTEF_RES4          = (1<<15),
+};
+
+/* ========================================================================= *
+                                 Filler item
+ * ========================================================================= */
+
+    /*  This item is used for supporting sparse clips. The fillerDuration
+        field contains the total of the formal durations of the missing
+        items between the previous event and the next one.
+    */
+
+typedef struct {
+    CM_ItemHeader       fillerItem;         /* item header                  */
+    UWORD               fillerDuration;     /* formal size of items left out*/
+} CM_Filler;
+
+/* ========================================================================= *
+                                 Dynamic Item
+ * ========================================================================= */
+
+    /*  This item specifies a MIDI volume. Note that the relationship between
+        Volume and dynamic markings (such as fff, pp, etc) is defined
+        elsewhere.
+    */
+
+typedef struct {
+    CM_ItemHeader       dynItem;            /* item header                  */
+    BYTE                dynLevelPos;        /* vertical position in leveks  */
+    UBYTE               dynVolume;          /* midi pressure number (0..127)*/
+    BYTE                dynSymbol;          /* dynamic symbol, see below    */
+    UBYTE               dynPad;
+} CM_Dynamic;
+
+    /*  Dynamic symbols:
+
+        0 = symbol not specified, derive from MIDI volume.
+        +1 = mf         -1 = mp
+        +2 = f          -2 = p
+        +3 = ff         -3 = pp
+        +4 = fff        -4 = ppp
+                (etc)
+    */
+
+/* ========================================================================= *
+                               Instrument item
+ * ========================================================================= */
+
+    /*  Rather than embedding the instrument names in the actual score, a
+        seperate "instrument table" chunk will be defined.
+    */
+
+typedef struct {
+    CM_ItemHeader       instItem;           /* instrument item              */
+    UBYTE               instNumber;         /* instrument number from table */
+    UBYTE               instPad;
+} CM_Instrument;
+
+/* ========================================================================= *
+                                  Tempo Item
+ * ========================================================================= */
+
+    /*  For compatibility with Standard MIDI files, tempo is represented as
+        microseconds per quarter note, rather than the more commonly used
+        quarter notes per minute. To convert from one to the other, the
+        following formula works both ways:
+
+                T = 60,000,000 / t;
+
+        For accuracy, you may want to round:
+
+                T = (60,000,000 + t/2) / t;
+
+        Of course, the user interface of the program should not use units
+        like this.
+    */
+
+typedef struct {
+    CM_ItemHeader       tempoItem;          /* item header                  */
+    ULONG               tempoValue;         /* new tempo value              */
+} CM_Tempo;
+
+/* ========================================================================= *
+                                 Repeat Item
+ * ========================================================================= */
+
+    /*  This is a general category of items for jumping around in the
+        score in a non-sequential fashion. It includes things like
+        begin/end repeat bars, repeat measure, Da Capo, etc.
+
+        "repeatCount" is the number of times that the jump should occur,
+        not the total number of times a passage should be played. For example,
+        an begin/end repeat which is to play twice (once through, and then
+        prepeated once) should have a repeatCount of "1".
+
+        In addition, repeatCount should be associated with the jump rather
+        than the label. This imples that the count should go with the
+        "end" of a begin/end block rather than the "begin".
+    */
+
+typedef struct {
+    CM_ItemHeader       repeatItem;         /* item header                  */
+    UBYTE               repeatType;         /* subtype of group             */
+    UBYTE               repeatCount;        /* number of times to jump      */
+} CM_Repeat;
+
+enum repeat_types {
+    REPEAT_BLOCK_BEGIN=0,                   /* defines a repeat block       */
+    REPEAT_BLOCK_END,
+
+    REPEAT_LAST_MEASURE,                    /* jumps back 1 measure         */
+    REPEAT_LAST_TWO_MEASURES,               /* jumps back 2 measures        */
+
+    REPEAT_MEASURE_REST,                    /* rest for N measures          */
+                                            /* (not really a jump)          */
+        /* labels to go to */
+
+    REPEAT_LABEL_SEGNO,                     /* The "sign" D.S. refers to    */
+    REPEAT_LABEL_CODA,                      /* The Coda symbol              */
+
+        /* goto operators */
+
+    REPEAT_DC,                              /* D.C.                         */
+    REPEAT_DC_AL_FINE,                      /* D.C. al fine                 */
+    REPEAT_DS,                              /* D.S.                         */
+    REPEAT_DS_AL_FINE,                      /* D.S. al fine                 */
+    REPEAT_DS_AL_CODA,                      /* D.S. al coda                 */
+};
+
+/* ========================================================================= *
+                                   Group Item
+ * ========================================================================= */
+
+    /*  A "Group" Item is defined as a Slur, Crescendo, or Octave Raiser.
+        In general, groups can apply to any contiguous range of notes
+        on a track, and groups of the same type can note overlap.
+
+        Note that in some cases, such as for example a crecendo, although
+        the modification is technically "attached" to a particular
+        track, it affects all the tracks on that staff.
+    */
+
+typedef struct {
+    CM_ItemHeader       groupItem;          /* item header                  */
+    UBYTE               groupType;          /* subtype of group             */
+
+        /*  To even out the structure, we'll add an extra byte which means
+            different things based on the group type. Right now it is
+            only defined in the case of a crescendo / decrescendo in which
+            case it means the final volume.
+
+            For all others, it should be set to zero.
+        */
+
+    UBYTE               groupVal;
+} CM_Group;
+
+    /* Types of group items supported */
+
+enum group_types {
+    GROUPTYPE_SLUR_UP=0,
+    GROUPTYPE_SLUR_DOWN,
+    GROUPTYPE_CRESCENDO,
+    GROUPTYPE_DECRESCENDO,
+    GROUPTYPE_OCTAVE_UP,                    /* "8va" symbol                 */
+    GROUPTYPE_OCTAVE_DOWN,                  /* "8vb" symbol                 */
+    GROUPTYPE_GLISSANDO_UP,
+    GROUPTYPE_GLISSANDO_DOWN,
+
+    GROUPTYPE_TUPLET,                       /* see below                    */
+    GROUPTYPE_TRILL,                        /* the one with the wavy line   */
+    GROUPTYPE_TREMOLO,                      /* Slashes below a beam         */
+};
+
+    /* Tuplets are a subtype of group items, and as such have an extended
+        structure. Unlike other group types, tuplet group items can be nested.
+
+        Note that for ending a tuplet, the extra fields are not required
+        and a normal "Group" structure can be used. Each tuplet ending
+        item matches the nearest previous unmatched tuplet item.
+    */
+
+typedef struct {
+    CM_ItemHeader       tupletItem;         /* item header                  */
+    UBYTE               tupletType;         /* subtype of group             */
+
+        /*  tupletNumber indicates how many notes can fit in the space of
+            'tupletSpace'. For example, a triplet, i.e. "3 in the space of 2",
+            or 2/3 duration, can be represented as tupletNumber = 3,
+            tupletSpace = 2.
+        */
+
+    UBYTE               tupletNumber,       /* How manu items               */
+                        tupletSpace;        /* in the space of how many     */
+
+        /*  tupletDigits represents the binary number which should be
+            displayed above the tuplet; For example, for a triplet this
+            should be 3.
+        */
+
+    UBYTE               tupletDigits;       /* number to display            */
+
+        /*  tupletFlags is for later use when we want tuplets combined with
+            slurs / brackets. Currently there are no flags defined, so the
+            field should be all zeroes.
+        */
+
+    UBYTE               tupletFlags,        /* various flags                */
+                        tupletPad;
+} CM_Tuplet;
+
+/* ========================================================================= *
+                                    Tablature Item
+ * ========================================================================= */
+
+    /*  The Tablature item is used for guitar, banjo or other fretted
+        instruments. It's a two-dimensional array of bits, which is drawn
+        as a grid indicating the exact placement of fingers.
+
+        In addition, most tablatures have the name of the chord placed above
+        the grid. This can be quite complex, looking something like this:
+
+                     7+6
+                C min
+
+        Which means: "C minor, with an added seventh and a raised sixth".
+    */
+
+typedef struct {
+    CM_ItemHeader       tabItem;            /* item header                  */
+
+        /*  tabRoot is used to indicate the name of the chord placed above
+            the tablature. Note that the root can have superscripts, which
+            are defined elsewhere.
+
+            unsigned int    rootLetter      : 3,    -- A, B, C, etc.
+                            rootAccidental  : 2,    -- accidental of root
+                            rootType        : 3,    -- major, minor, etc.
+        */
+
+    UBYTE               tabRoot;            /* describes root of chord      */
+
+        /*  tabDimensions is a field of two 4 bit values, representing the
+            width and height of the tablature array. A dimension of (0,0)
+            indicates that only the chord symbol should be used.
+        */
+
+    UBYTE               tabDimensions;      /* width/height of tab array    */
+
+        /*  tabIntervals is an optional field -- if it's zero, it means that
+            the writing program wasn't sophisticated enough to set it.
+            (This is generally true for programs that are typographical
+            rather than musical in orientation).
+
+            The field used to exactly describe the intervals in the
+            chord above the root. Each interval may be:
+
+                0 - missing ( no interval)
+                1 - lowered ( one half-step below major chord position )
+                2 - normal  ( in the normal position for a major chord )
+                3 - raised  ( one half-step above major chord position )
+
+            unsigned int    chordThird      : 2,    -- (missing, -1, 0, +1)
+                            chordFifth      : 2,    -- (missing, -1, 0, +1)
+                            chordSeventh    : 2,    -- (missing, -1, 0, +1)
+                            chordNinth      : 2,    -- (missing, -1, 0, +1)
+                            chordEleventh   : 2,    -- (missing, -1, 0, +1)
+                            chordThirteenth : 2,    -- (missing, -1, 0, +1)
+                            chordFifteenth  : 2,    -- (missing, -1, 0, +1)
+                            chordValid      : 1,    -- TRUE if field valid
+                            chordPad        : 1;
+        */
+
+    UWORD               tabIntervals;       /* describes exact chord intervals*/
+
+        /*  tabArray is a byte array of finger positions.
+
+            Each byte represents a string. The value of the byte
+            can be from 0 (representing an open string), or 1-16
+            (representing a finger placed above the Nth fret). The high
+            4 bits are reserved for now, but may be used later to indicate
+            special placement of the fingers.
+
+            Note that the tabArray can be longer or shorter than 6 bytes,
+            up to a maximum of 16 strings. In such cases, the event length
+            stored in the CM_ItemHeader would be adjusted accordingly.
+        */
+
+    UBYTE               tabArray[6];        /* tablature array              */
+
+        /*  Following the tabArray field is an optional variable-length
+            ASCII string which is the actual text of the superscript,
+            such as "maj6+7".
+
+            The length of the string can be computed comparing the end of
+            the event with the end of the tab-array. Null termination is
+            not required.
+        */
+
+};
+
+enum chord_accidentals {
+    CHORD_ACC_NONE=0,
+    CHORD_ACC_FLAT,
+    CHORD_ACC_NATURAL,
+    CHORD_ACC_SHARP
+};
+
+enum chord_types {
+    CHORD_TYPE_MAJOR,
+    CHORD_TYPE_MINOR,
+    CHORD_TYPE_DIMINISHED,
+    CHORD_TYPE_AUGMENTED,
+    CHORD_TYPE_SUSPENDED
+};
+
+enum chord_letters {
+    CHORD_LETTER_A=0,
+    CHORD_LETTER_B,
+    CHORD_LETTER_C,
+    CHORD_LETTER_D,
+    CHORD_LETTER_E,
+    CHORD_LETTER_F,
+    CHORD_LETTER_G
+};
+
+/* ========================================================================= *
+                           Lyric Font Chunk (LFON)
+
+    This section describes the data structures which are used in the CMUS
+    'LFON' Chunk.
+
+    LFON chunks are used to store the font table for the document. Embedded
+    within the Lyric, Annotation and title chunks are font specifiers which
+    refer to a given font by number. That number is an index into this table.
+
+    There is one LFON chunk per font. Each LFON chunk consists of the following
+    header, and then the name of the font. The terminating NULL should be
+    included in the font name.
+
+ * ========================================================================= */
+
+typedef struct {
+    UWORD               fontNumber;             /* number assigned to font  */
+    UWORD               fontHeight;             /* height of font in points */
+
+    /* fontName follows */
+
+} CM_FontEntry;
+
+/* ========================================================================= *
+                              Lyric Chunk (LYRC)
+
+    This section describes the data structures which are used in the CMUS
+    'LYRC' Chunk.
+
+    Each lyric is associated with a particular track, and a particular measure
+    within that track. The reason for this is because certain elements within
+    the lyrics can be "attached" to notes within a track, so that syllables
+    of the lyric can properly appear under the notes.
+
+    Lyrics associated with a particular track are written immediately after
+    that track. In other words, when reading a lyric, it should be associated
+    with the previously read track.
+
+ * ========================================================================= */
+
+    /*  This is the header structure for a lyric. It is followed by the actual
+        text of the lyric. No terminating NUL is used.
+
+        Attaching syllables to notes: This is an optional feature which need
+        not be supported by all readers. Basically, the TAB character is used
+        to specify a block of text to align with the next note. Essentially,
+        each chord on the track acts as a center-justified tab-stop. This is
+        similar to the way tab stops work on medium- to high-end word
+        processors: All the text between a tab, and the next tab (or the end
+        of the line) is "centered" at the tab-stop position. Readers
+        which don't wish to deal with this level of complexity can just
+        treat the tab as a space.
+    */
+
+typedef struct {
+    UWORD               lyricMeasure;       /* starting measure of lyric    */
+
+        /*  Position of the upper-left coordinate of the lyric.
+            This can be positive or negative, and is interpreted just like
+            the 'itemXPos' field for track events.
+        */
+
+    WORD                lyricXPos;          /* position relative to measure */
+
+        /*  lyricLevel is the position, in micrometers, of the upper-
+            left corner of the lyric's extent box.
+
+            lyricHeight is also in micrometers.
+        */
+
+    Micrometers         lyricLevel,         /* distance from center of staff*/
+                        lyricHeight;        /* height of lyric extent       */
+
+        /*  Width is in micrometers. */
+
+    Micrometers         lyricWidth;
+
+        /* lyric text string follows */
+
+} CM_Lyric;
+
+    /*  Codes for specification of fonts and text styles. The "newfont" code
+        is followed by the font number. If no font is specified, font #0 is
+        the default.
+    */
+
+enum {
+    LSTYLE_BOLD_ON=0x80,
+    LSTYLE_BOLD_OFF,
+    LSTYLE_ITALIC_ON,
+    LSTYLE_ITALIC_OFF,
+    LSTYLE_UNDER_ON,
+    LSTYLE_UNDER_OFF,
+    LSTYLE_NEWFONT,                             /* font number follows      */
+};
+
+/* ========================================================================= *
+                             Annotation chunks (ANOT)
+
+    This section describes the data structures which are used in the CMUS
+    'ANOT' Chunk. Note that there is a standard IFF chunk called 'ANNO'
+    which can be added to any file to annotate the file. The 'ANOT' is
+    used to specify annotations to the music, not to the file.
+
+ * ========================================================================= */
+
+    /*  Annotation chunks are specified exactly like Lyric chunks. The only
+        reason for distinguishing between the two is that a "stripper" program
+        might want to strip out one or the other.
+    */
+
+/* ========================================================================= *
+                               Title Chunk (TITL)
+
+    This section describes the data structures which are used in the CMUS 'TITL'
+    Chunk. Unlike Lyrics, Titles are placed at fixed positions on the page
+    (generally at the top) and are are not adjusted based on the positioning
+    of any particular measure.
+
+ * ========================================================================= */
+
+    /*  Title chunks are specified exactly like Lyric chunks, except that the
+        lyricMeasure field is ignored and should be set to 0.
+
+        In particular, the lyricXPos field is no longer based on measure width,
+        but is now a fractional width of the document. Similarly, the
+        lyricLevel field is the number of levels from the top of the page.
+        (Or should that be an absolute measure?)
+    */
+
+/* ========================================================================= *
+                          CMUS Instrument Table (FORM INST)
+
+        The instrument table fo the CMUS form is stored as an embedded FORM
+    called 'INST'. Each instrument in the table is one INST form.
+
+        Instruments can be configured for MIDI, internal audio, or both.
+    When using internal sounds, samples can be sepcified using an embedded
+    FORM 8SVX, or any other IFF sampled sound FORM that the program wishes
+    to support. Sampled sounds can be embedded in the file, or external
+    sample files can be referenced from within the file, by pathname.
+
+        Here's a summary of the chunks which can be included in an INST
+    form:
+
+        'INHD': This is the instrument header. It contains the instrument
+            number, and the various MIDI-related parameters. The chunk
+            format is defined below.
+
+        'FORM 8SVX': This is an embedded sampled sound file. The sampled
+            sound is to be associated with the instrument.
+
+        'SFIL': This is a reference to a sampled sound in a different file,
+            and can be used instead of an embedded sample. The chunk format
+            is simply the name of the file. If the file contains more than
+            one sample, only the first is used. (A different chunk can be
+            defined to select the Nth sample, if it turns out that this
+            feature might be desired).
+
+        'SHAR': This allows a instrument to share a sampled sound with
+            another instrument. This would be used instead of either and
+            embedded sample or an 'SFIL' chunk. The chunk format is simple
+            a UWORD of the instrument number to share with; This
+            instrument must have been previously loaded.
+
+        'ATAK': Identical with the ATAK chunk in FORM 8SVX, this allows
+            the instrument have a different envelope than the one in
+            the sampled sound file.
+
+        'RLSE': Identical with the RLSE chunk in FORM 8SVX, this allows the
+            instrument have a different envelope than the one in the
+            sampled sound file.
+
+        'NAME': is a standard chunk which can be added to any IFF FORM.
+            In this case, it is used to store the instrument name. Other
+            standard chunks which can be added are "AUTH" (author name),
+            "VERS" (version string), "ANNO" (Annotations) and "(C) "
+            (copyright notice).
+
+    Note: If there is no sampled sound specified, either through an
+        embedded sample or SFIL or SHAR chunks, then this instrument is
+        a MIDI-only instrument.
+
+ * ========================================================================= */
+
+    /* Instrument header chunk -- INHD */
+
+typedef struct {
+
+        /*  'instNumber' corresponds to the instrument number used
+            in the "instrument event" in the TRCK chunk.
+        */
+
+    UBYTE               instNumber;
+
+    UBYTE               instFlags;          /* various flags                */
+    WORD                instTune;           /* tuning, in 1/100 semitones   */
+    WORD                instVolume;         /* overall volume, 0-0xffff     */
+
+        /*  "Pan" can be used by both MIDI and sampled sound instruments, and
+            indicates a preferences for left or right. It ranges from 0 to
+            127 (same as MIDI), with 0 being ?? and 127 being ??.
+        */
+
+    UBYTE               instPan;
+
+        /*  MIDI-related variables */
+
+    UBYTE               instMidiChannel;    /* MIDI channel to use          */
+    UBYTE               instMidiPreset;     /* MIDI Preset for this channel */
+    UBYTE               instMidiPort;       /* Hardware port #, if applies  */
+
+} InstrumentHeader;
+
+#define INST_MAXVOL     0x0ffff
+#define INST_MAXPAN     127
+
+    /* various flags for instFlags */
+
+#define INSTF_MIDI      (1<<0)              /* MIDI is enabled              */
+#define INSTF_MIDIVOL   (1<<1)              /* use MIDI volume, not velocity*/
+
+#endif
