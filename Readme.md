@@ -65,6 +65,7 @@ There are currently two utility functions that can be accessed using `require('i
 ## To-Do
 
 * Better robustness for incorrect buffer sizes in the header field.
+* ilbm_canvas should support transparency (mskHasMask and mskHasTransparentColor)
 * Parsing of SMUS music files…
 
 ## License
