@@ -14,7 +14,8 @@
   },
   "dependencies": {},
   "devDependencies": {},
-	"optionalDependencies": {
-		"canvas": "0.8.1"
-	}
+  "optionalDependencies": {
+    "canvas": "0.8.1",
+    "midimal": "0.0.1"
+  }
 }
