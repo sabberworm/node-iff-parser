@@ -3,7 +3,7 @@
   "name": "iff-parser",
   "keywords": ["iff", "amiga", "ilbm", "smus"],
   "description": "Parses Amiga IFF files",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "repository": {
 		"type": "git",
     "url": "git://github.com/sabberworm/node-iff-parser.git"
@@ -16,6 +16,6 @@
   "devDependencies": {},
   "optionalDependencies": {
     "canvas": "0.8.1",
-    "midimal": "0.0.4"
+    "midimal": "0.0.5"
   }
 }
