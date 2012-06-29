@@ -62,11 +62,14 @@ There are currently two utility functions that can be accessed using `require('i
 
 `ilbm_canvas` will try to load the iff-parsed file as ILBM (inter-leaved bitmap) into a new node-canvas, returning said canvas. Requires [node-canvas](https://github.com/LearnBoost/node-canvas) to be installed.
 
+### smus_write_midi(file, instrument_sets, options)
+
+Generate a MIDI file from a SMUS IFF using `smus_write_midi`. Requires midimal to be installed.
+
 ## To-Do
 
 * Better robustness for incorrect buffer sizes in the header field.
 * ilbm_canvas should support lasso masks (mskLasso)
-* Parsing of SMUS music files…
 
 ## License
 
