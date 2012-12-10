@@ -2,12 +2,14 @@ The node-iff-parser parses Amiga IFF files (of all kinds) according to [specific
 
 ## Usage
 
-    var IFFParser = require('iff-parser').Parser;
-    var settings = {}; //Optional
-    var parser = new IFFParser('/path/to/file', settings);
-    parser.parse(function(error, result) {
-        //Do something with the result
-    });
+```javascript
+var IFFParser = require('iff-parser').Parser;
+var settings = {}; //Optional
+var parser = new IFFParser('/path/to/file', settings);
+parser.parse(function(error, result) {
+    //Do something with the result
+});
+```
 
 IFF Chunks are parsed into nodes. There are nodes for container chunks (chunks that can contain other chunks), `ContainerChunk`, and nodes for data-only chunks (`DataChunk`). The top-level object returned is of type `File`, which is a special container chunk that can only contain one chunk. Said chunk can be accessed using the `.content` property (or using `chunkById('FORM')` for compatibility). The chunk returned is (for all valid files) a container of type `FORM`.
 
@@ -32,19 +34,21 @@ Container chunks additionally contain the following:
 
 Each chunk, before being made into an object of either type, is processed by a `processor`. There are built-in processors for various types such as the basic `LIST`, `FORM`, `CAT ` and `PROP` chunk types as well as some chunk types specific to the ILBM image file type. To create your own processor, simply pass the option `processors`. This option should be an object with the chunk types you wish to parse as keys and the processor function as value:
 
-    settings = {
-        processors: {
-            "FXHD": function(chunk_info, parentChunk) {
-                //chunk_info contains ckID, ckSize and ckData fields
-                    var props = {
-                    width = chunk_info.ckData.readUInt16BE(0),
-                    …
-                }
-                return {additionalData: props, innerChunkBuffer: null}
-            },
-            …
-        }
-    };
+```javascript
+settings = {
+    processors: {
+        "FXHD": function(chunk_info, parentChunk) {
+            //chunk_info contains ckID, ckSize and ckData fields
+                var props = {
+                width = chunk_info.ckData.readUInt16BE(0),
+                …
+            }
+            return {additionalData: props, innerChunkBuffer: null}
+        },
+        …
+    }
+};
+```
 
 If the returned `innerChunkBuffer` of a processor is non-null, the returned Buffer (which should be a sliced version of `chunk_info.ckData`) is used to parse child chunks. The default implementation will return `null` for unknown chunks (meaning they become `DataChunk`s).
 
